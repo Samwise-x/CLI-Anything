@@ -286,6 +286,8 @@ def print_repl_banner(skin: ReplSkin, program_name: str | None = None) -> None:
         click.echo()
     else:
         skin.print_banner()
+        if skin.skill_path:
+            click.echo(f"Skill: {skin.skill_path}")
     click.echo(f"History: {skin.history_file}")
 
 

@@ -74,6 +74,13 @@ def _make_auth_token(api_key: str) -> str:
     return api_key if api_key.startswith("Bearer ") else f"Bearer {api_key}"
 
 
+def _redact_secret(text: str, api_key: str) -> str:
+    for secret in sorted((api_key, _make_auth_token(api_key)), key=len, reverse=True):
+        if secret:
+            text = text.replace(secret, "[REDACTED]")
+    return text
+
+
 def _require_api_key(api_key: str | None) -> str:
     if not api_key:
         raise RuntimeError(
@@ -108,11 +115,14 @@ def upload_file(api_key: str, file_path: str, extra_headers: dict | None = None)
         )
 
     if resp.status_code != 200:
-        raise RuntimeError(f"Upload failed (HTTP {resp.status_code}): {resp.text[:300]}")
+        raise RuntimeError(
+            f"Upload failed (HTTP {resp.status_code}): "
+            f"{_redact_secret(resp.text, api_key)[:300]}"
+        )
 
     result = resp.json()
     if not result.get("success"):
-        raise RuntimeError(f"Upload failed: {result.get('error', 'Unknown error')}")
+        raise RuntimeError(f"Upload failed: {_redact_secret(str(result.get('error', 'Unknown error')), api_key)}")
 
     return {
         "file_token": result.get("file_token"),
@@ -182,11 +192,14 @@ def prepare_task(
         json=body, headers=headers, timeout=120,
     )
     if resp.status_code != 200:
-        raise RuntimeError(f"Prepare failed (HTTP {resp.status_code}): {resp.text[:300]}")
+        raise RuntimeError(
+            f"Prepare failed (HTTP {resp.status_code}): "
+            f"{_redact_secret(resp.text, api_key)[:300]}"
+        )
 
     result = resp.json()
     if not result.get("success"):
-        raise RuntimeError(f"Prepare failed: {result.get('error', 'Unknown error')}")
+        raise RuntimeError(f"Prepare failed: {_redact_secret(str(result.get('error', 'Unknown error')), api_key)}")
     return result
 
 
@@ -256,11 +269,14 @@ def create_task(
         json=body, headers=headers, timeout=30,
     )
     if resp.status_code != 200:
-        raise RuntimeError(f"Create task failed (HTTP {resp.status_code}): {resp.text[:300]}")
+        raise RuntimeError(
+            f"Create task failed (HTTP {resp.status_code}): "
+            f"{_redact_secret(resp.text, api_key)[:300]}"
+        )
 
     result = resp.json()
     if not result.get("success"):
-        raise RuntimeError(f"Task creation failed: {result.get('error', 'Unknown error')}")
+        raise RuntimeError(f"Task creation failed: {_redact_secret(str(result.get('error', 'Unknown error')), api_key)}")
 
     return {
         "task_id": result.get("task_id"),
@@ -282,7 +298,10 @@ def query_task(api_key: str, task_id: str, extra_headers: dict | None = None) ->
         headers=headers, timeout=30,
     )
     if resp.status_code != 200:
-        raise RuntimeError(f"Query failed (HTTP {resp.status_code}): {resp.text[:300]}")
+        raise RuntimeError(
+            f"Query failed (HTTP {resp.status_code}): "
+            f"{_redact_secret(resp.text, api_key)[:300]}"
+        )
     return resp.json()
 
 
@@ -323,7 +342,7 @@ def poll_task(
             return task
         if status == "failed":
             error = task.get("error", "Unknown error")
-            raise RuntimeError(f"Task {task_id} failed: {error}")
+            raise RuntimeError(f"Task {task_id} failed: {_redact_secret(str(error), api_key)}")
 
         time.sleep(interval)
 
@@ -357,12 +376,13 @@ def download_file(
 
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
-    file_path = out_path / (file_name or "output")
+    safe_name = Path(str(file_name or "output").replace("\\", "/")).name
+    file_path = out_path / (safe_name or "output")
 
-    if file_path.exists():
+    if file_path.exists() or file_path.is_symlink():
         stem, suffix = file_path.stem, file_path.suffix
         counter = 1
-        while file_path.exists():
+        while file_path.exists() or file_path.is_symlink():
             file_path = out_path / f"{stem}_{counter}{suffix}"
             counter += 1
 

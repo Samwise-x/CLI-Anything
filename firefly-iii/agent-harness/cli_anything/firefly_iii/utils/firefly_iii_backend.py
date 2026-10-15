@@ -31,6 +31,10 @@ class FireflyIIIBackend:
         # Validate connection
         self._validate_connection()
 
+    def _redact_response_text(self, text: str) -> str:
+        """Remove the configured bearer token if a server echoes it in an error."""
+        return text.replace(self.pat, "[REDACTED]") if self.pat else text
+
     def _validate_connection(self):
         """Validate connection to Firefly III instance"""
         try:
@@ -54,7 +58,7 @@ class FireflyIIIBackend:
                     "Authentication failed: Personal Access Token is invalid\n"
                     "Please generate a new PAT in Firefly III Options > Profile > OAuth"
                 )
-            raise RuntimeError(f"HTTP Error {response.status_code}: {response.text}")
+            raise RuntimeError(f"HTTP Error {response.status_code}: {self._redact_response_text(response.text)}")
 
     def request(self, method: str, endpoint: str, params: Dict = None, data: Dict = None) -> Dict[str, Any]:
         """
@@ -98,7 +102,7 @@ class FireflyIIIBackend:
                 error_detail = response.json().get('message', 'Unknown error')
                 raise RuntimeError(f"Request parameter error: {error_detail}")
             else:
-                raise RuntimeError(f"HTTP Error {response.status_code}: {response.text}")
+                raise RuntimeError(f"HTTP Error {response.status_code}: {self._redact_response_text(response.text)}")
         except requests.exceptions.Timeout:
             raise RuntimeError("Request timeout, please check network connection")
         except Exception as e:

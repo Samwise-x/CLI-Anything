@@ -3,9 +3,21 @@
 import os
 import shutil
 import tarfile
+import tempfile
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import datetime
+
+def _project_model_path(project: Dict[str, Any], model_dir: str) -> Optional[Path]:
+    project_root = project.get("_project_dir") or project.get("project_root")
+    if not project_root or not model_dir:
+        return None
+    root = Path(project_root).expanduser().resolve()
+    target = Path(model_dir).expanduser().resolve()
+    if target == root or root not in target.parents:
+        return None
+    return target
+
 
 
 def delete_model(project: Dict[str, Any], run_id: str,
@@ -27,9 +39,10 @@ def delete_model(project: Dict[str, Any], run_id: str,
         return False
 
     # Support both model_dir and save_path
-    model_dir = run.get("model_dir") or run.get("save_path", "")
-    if not model_dir or not os.path.exists(model_dir):
+    model_dir = _project_model_path(project, run.get("model_dir") or run.get("save_path", ""))
+    if model_dir is None or not model_dir.is_dir():
         return False
+    model_dir = str(model_dir)
 
     # Calculate size before deletion
     from .storage import get_directory_size
@@ -83,12 +96,13 @@ def archive_model(project: Dict[str, Any], run_id: str,
             "message": f"Run not found: {run_id}"
         }
 
-    model_dir = run.get("model_dir", "")
-    if not os.path.exists(model_dir):
+    model_dir = _project_model_path(project, run.get("model_dir", ""))
+    if model_dir is None or not model_dir.is_dir():
         return {
             "status": "error",
-            "message": f"Model directory not found: {model_dir}"
+            "message": "Model directory is missing or outside the project"
         }
+    model_dir = str(model_dir)
 
     # Setup archive directory
     if archive_dir is None:
@@ -190,8 +204,16 @@ def restore_model(project: Dict[str, Any], run_id: str) -> Dict[str, Any]:
 
     try:
         # Extract archive
-        with tarfile.open(archive_path, "r:gz") as tar:
-            tar.extractall(experiments_dir)
+        Path(experiments_dir).mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix=".restore-", dir=experiments_dir) as staging_dir:
+            with tarfile.open(archive_path, "r:gz") as tar:
+                tar.extractall(staging_dir, filter="data")
+
+            staged_model_dir = Path(staging_dir, run_id).resolve()
+            staging_root = Path(staging_dir).resolve()
+            if staging_root not in staged_model_dir.parents or not staged_model_dir.is_dir():
+                raise ValueError("Archive does not contain the expected model directory")
+            os.replace(staged_model_dir, restore_dir)
 
         # Update project metadata
         run["archived"] = False

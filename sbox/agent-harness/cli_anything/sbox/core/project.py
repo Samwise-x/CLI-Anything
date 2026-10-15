@@ -209,6 +209,8 @@ def create_project(
 
     Returns dict with project info.
     """
+    if not name or name in {".", ".."} or "/" in name or "\\" in name:
+        raise ValueError("project name must be a single path component")
     root = output_dir if output_dir else os.path.join(os.getcwd(), name)
     os.makedirs(root, exist_ok=True)
 

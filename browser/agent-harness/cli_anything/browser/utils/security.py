@@ -11,8 +11,10 @@ Threat Model:
 
 from __future__ import annotations
 
+import ipaddress
 import os
 import re
+import socket
 from urllib.parse import urlparse
 
 
@@ -150,6 +152,18 @@ def validate_url(url: str) -> tuple[bool, str]:
     if _BLOCK_PRIVATE_NETWORKS:
 
         hostname_lower = hostname.lower()
+
+        try:
+            address = ipaddress.ip_address(hostname_lower)
+        except ValueError:
+            try:
+                # Browsers accept legacy numeric IPv4 forms such as 2130706433.
+                # inet_aton parses numeric forms without resolving DNS names.
+                address = ipaddress.ip_address(socket.inet_aton(hostname_lower))
+            except (OSError, ValueError):
+                address = None
+        if address is not None and not address.is_global:
+            return False, f"Private network access blocked: {hostname}"
 
         # Check against private network patterns
         for pattern in _PRIVATE_NETWORK_PATTERNS:

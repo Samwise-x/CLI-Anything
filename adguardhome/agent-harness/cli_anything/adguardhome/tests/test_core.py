@@ -146,6 +146,8 @@ class TestProject:
         data = json.loads(path.read_text())
         assert data["host"] == "myhost"
         assert data["port"] == 4000
+        if os.name != "nt":
+            assert path.stat().st_mode & 0o077 == 0
 
 
 # ---------------------------------------------------------------------------

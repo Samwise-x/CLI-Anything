@@ -569,3 +569,26 @@ class TestTruncation:
         long_val = _truncate("this_is_a_very_long_string", 10)
         assert long_val.endswith("...")
         assert len(long_val) == 10
+
+
+def test_session_file_is_private(auth_session):
+    import stat
+
+    auth_session.save()
+
+    assert stat.S_IMODE(SESSION_FILE.stat().st_mode) == 0o600
+
+
+def test_session_save_does_not_follow_symlink(tmp_path, auth_session, monkeypatch):
+    from cli_anything.jumpserver.core import session as session_module
+
+    victim = tmp_path / "victim.json"
+    victim.write_text("preserve this file")
+    session_link = tmp_path / "session.json"
+    session_link.symlink_to(victim)
+    monkeypatch.setattr(session_module, "SESSION_FILE", session_link)
+
+    with pytest.raises(OSError):
+        auth_session.save()
+
+    assert victim.read_text() == "preserve this file"

@@ -604,3 +604,25 @@ class TestCLIClick:
         skin = FakeReplSkin.instances[-1]
         assert any("No such option" in error for error in skin.errors)
         assert skin.goodbye_printed is True
+
+
+def test_http_error_redacts_pat_reflected_by_server():
+    from requests.exceptions import HTTPError
+
+    about = Mock()
+    about.status_code = 200
+    about.raise_for_status.return_value = None
+    about.json.return_value = {}
+
+    failed = Mock()
+    failed.status_code = 500
+    failed.text = "server echoed test-pat-secret"
+    failed.raise_for_status.side_effect = HTTPError("server failure")
+
+    with patch('cli_anything.firefly_iii.utils.firefly_iii_backend.requests.get', return_value=about), \
+         patch('cli_anything.firefly_iii.utils.firefly_iii_backend.requests.request', return_value=failed):
+        backend = FireflyIIIBackend("https://firefly.example.com", "test-pat-secret")
+        with pytest.raises(RuntimeError) as exc_info:
+            backend.get("/accounts")
+
+    assert "test-pat-secret" not in str(exc_info.value)

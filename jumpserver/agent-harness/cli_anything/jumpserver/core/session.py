@@ -39,7 +39,13 @@ class Session:
         SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
         data = asdict(self)
         data.pop("_current_user", None)
-        SESSION_FILE.write_text(json.dumps(data, indent=2))
+        flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        flags |= getattr(os, "O_NOFOLLOW", 0)
+        fd = os.open(SESSION_FILE, flags, 0o600)
+        if hasattr(os, "fchmod"):
+            os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w") as session_file:
+            json.dump(data, session_file, indent=2)
 
     @classmethod
     def load(cls) -> "Session":
