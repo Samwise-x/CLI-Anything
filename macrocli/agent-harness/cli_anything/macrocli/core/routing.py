@@ -89,19 +89,27 @@ class RoutingEngine:
         if step.retry_max <= 0:
             return backend.execute(step, params, context)
 
-        # Retry with backoff
+        # Retry with backoff, bounded by the step's total time budget.
+        import time
+        deadline = time.monotonic() + max(context.timeout_ms, 0) / 1000.0
         last_result: StepResult | None = None
         backoff = step.retry_backoff_ms or [1000]
         for attempt in range(step.retry_max + 1):
+            if time.monotonic() >= deadline:
+                break
             last_result = backend.execute(step, params, context)
             if last_result.success:
                 return last_result
             if attempt < step.retry_max:
-                import time
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
                 wait = backoff[min(attempt, len(backoff) - 1)] / 1000.0
-                time.sleep(wait)
+                time.sleep(min(wait, remaining))
 
         assert last_result is not None
+        if time.monotonic() >= deadline:
+            last_result.error = f"{last_result.error} (step timeout exceeded)"
         return last_result
 
     def describe(self) -> dict:

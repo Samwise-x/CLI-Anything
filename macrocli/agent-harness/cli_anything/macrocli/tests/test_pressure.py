@@ -214,3 +214,29 @@ def test_menu_dispatch_uses_uia_compatible_interface(monkeypatch):
     result=semantic_ui.SemanticUIBackend().execute(MacroStep(backend='semantic_ui',action='menu_click',params={'app_name':'Owned window','menu_path':['File','Open']}),{},BackendContext({}))
     assert result.success,result.error
     assert result.output['menu_path'] == ['File','Open']
+
+
+def test_retry_backoff_respects_step_timeout_budget():
+    import time
+    from cli_anything.macrocli.backends.base import Backend, StepResult
+    class AlwaysFails(Backend):
+        name = "native_api"
+        def __init__(self):
+            self.calls = 0
+        def execute(self, step, params, context):
+            self.calls += 1
+            return StepResult(success=False, error="synthetic failure", backend_used=self.name)
+    engine = RoutingEngine()
+    backend = AlwaysFails()
+    engine._backends["native_api"] = backend
+    step = MacroStep(
+        backend="native_api", action="run_command", retry_max=2,
+        retry_backoff_ms=[1000], timeout_ms=10,
+    )
+    started = time.monotonic()
+    result = engine.execute_step(step, {}, BackendContext({}, timeout_ms=10))
+    elapsed = time.monotonic() - started
+
+    assert not result.success
+    assert backend.calls == 1
+    assert elapsed < 0.25, f"retry backoff exceeded the 10ms step budget: {elapsed:.3f}s"

@@ -705,8 +705,9 @@ def workflow_backup_all(ctx: click.Context, out_dir: str, active_only: bool) -> 
         try:
             full = workflows.get_workflow(wf_id, **conn)
             export_data = _strip_server_fields(full)
-            name_safe = _safe_filename(full.get("name", wf_id))
-            filename = f"{wf_id}_{name_safe}.json"
+            workflow_id_safe = _safe_filename(str(wf_id))
+            name_safe = _safe_filename(str(full.get("name", wf_id)))
+            filename = f"{workflow_id_safe}_{name_safe}.json"
             (out_path / filename).write_text(json.dumps(export_data, indent=2, default=str))
             click.secho(f"    {wf_id}  {full.get('name', '?')}", fg="green")
             ok += 1

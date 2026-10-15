@@ -24,6 +24,12 @@ def _headers(api_key: str, accept: str = "application/json",
     return h
 
 
+def _safe_error_body(resp: requests.Response, api_key: str) -> str:
+    """Keep API diagnostics useful without echoing the Bearer credential."""
+    body = resp.text
+    return body.replace(api_key, "[redacted]") if api_key else body
+
+
 def _verify_tls(base_url: str) -> bool | str:
     """Verify remote certificates; allow the plugin's self-signed loopback cert."""
     parsed = urlsplit(base_url)
@@ -60,7 +66,7 @@ def api_get(base_url: str, endpoint: str, api_key: str,
         ) from e
     except requests.exceptions.HTTPError as e:
         raise RuntimeError(
-            f"Obsidian API error {resp.status_code} on GET {endpoint}: {resp.text}"
+            f"Obsidian API error {resp.status_code} on GET {endpoint}: {_safe_error_body(resp, api_key)}"
         ) from e
     except requests.exceptions.Timeout as e:
         raise RuntimeError(
@@ -91,7 +97,7 @@ def api_post(base_url: str, endpoint: str, api_key: str,
         ) from e
     except requests.exceptions.HTTPError as e:
         raise RuntimeError(
-            f"Obsidian API error {resp.status_code} on POST {endpoint}: {resp.text}"
+            f"Obsidian API error {resp.status_code} on POST {endpoint}: {_safe_error_body(resp, api_key)}"
         ) from e
     except requests.exceptions.Timeout as e:
         raise RuntimeError(
@@ -129,7 +135,7 @@ def api_post_raw(base_url: str, endpoint: str, api_key: str,
         ) from e
     except requests.exceptions.HTTPError as e:
         raise RuntimeError(
-            f"Obsidian API error {resp.status_code} on POST {endpoint}: {resp.text}"
+            f"Obsidian API error {resp.status_code} on POST {endpoint}: {_safe_error_body(resp, api_key)}"
         ) from e
     except requests.exceptions.Timeout as e:
         raise RuntimeError(
@@ -160,7 +166,7 @@ def api_put(base_url: str, endpoint: str, api_key: str,
         ) from e
     except requests.exceptions.HTTPError as e:
         raise RuntimeError(
-            f"Obsidian API error {resp.status_code} on PUT {endpoint}: {resp.text}"
+            f"Obsidian API error {resp.status_code} on PUT {endpoint}: {_safe_error_body(resp, api_key)}"
         ) from e
     except requests.exceptions.Timeout as e:
         raise RuntimeError(
@@ -189,7 +195,7 @@ def api_delete(base_url: str, endpoint: str, api_key: str,
         ) from e
     except requests.exceptions.HTTPError as e:
         raise RuntimeError(
-            f"Obsidian API error {resp.status_code} on DELETE {endpoint}: {resp.text}"
+            f"Obsidian API error {resp.status_code} on DELETE {endpoint}: {_safe_error_body(resp, api_key)}"
         ) from e
     except requests.exceptions.Timeout as e:
         raise RuntimeError(

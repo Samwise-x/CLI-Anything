@@ -339,6 +339,19 @@ def providers_set_current(ctx: click.Context, provider_id: str, app: str) -> Non
         "openclaw": [home / ".openclaw/openclaw.json"],
         "hermes": [home / ".hermes/config.yaml"],
     }[app]
+    if ctx.obj.get("live_home"):
+        for path in managed:
+            try:
+                relative_parts = path.relative_to(home).parts
+            except ValueError as error:
+                raise click.ClickException("Managed config path escaped --live-home") from error
+            cursor = home
+            for part in relative_parts:
+                cursor = cursor / part
+                if cursor.is_symlink():
+                    raise click.ClickException(
+                        f"Refusing symlink in managed config path: {cursor}"
+                    )
     previous = {path: (path.read_bytes(), path.stat().st_mode) if path.is_file() else None
                 for path in managed}
     db = connect_db(ctx.obj.get("db_path"))

@@ -105,3 +105,45 @@ def test_restore_continues_after_one_managed_file_restore_fails(tmp_path,monkeyp
     assert restored == [auth]
     assert auth.read_bytes() == b'{"old":true}\n'
     assert 'filesystem restoration also failed' in str(result.exception)
+
+
+def test_explicit_live_home_rejects_symlinked_managed_directory(tmp_path):
+    import sqlite3
+    db = fixture_db(tmp_path)
+    live = tmp_path / "managed"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "config.toml").write_text('model = "outside-before"\n', encoding="utf-8")
+    live.mkdir()
+    (live / ".codex").symlink_to(outside, target_is_directory=True)
+
+    result = CliRunner().invoke(
+        cli, ["--db", str(db), "--live-home", str(live),
+              "providers", "set-current", "new", "--app", "codex"]
+    )
+
+    assert result.exit_code != 0, "managed path symlink escaped the explicit live-home sandbox"
+    assert (outside / "config.toml").read_text(encoding="utf-8") == 'model = "outside-before"\n'
+    with sqlite3.connect(db) as conn:
+        assert conn.execute('SELECT is_current FROM providers WHERE id="new"').fetchone()[0] == 0
+
+
+def test_explicit_live_home_rejects_symlinked_config_file(tmp_path):
+    import sqlite3
+    db = fixture_db(tmp_path)
+    live = tmp_path / "managed"
+    codex = live / ".codex"
+    outside = tmp_path / "outside.toml"
+    outside.write_text('model = "outside-before"\n', encoding="utf-8")
+    codex.mkdir(parents=True)
+    (codex / "config.toml").symlink_to(outside)
+
+    result = CliRunner().invoke(
+        cli, ["--db", str(db), "--live-home", str(live),
+              "providers", "set-current", "new", "--app", "codex"]
+    )
+
+    assert result.exit_code != 0
+    assert outside.read_text(encoding="utf-8") == 'model = "outside-before"\n'
+    with sqlite3.connect(db) as conn:
+        assert conn.execute('SELECT is_current FROM providers WHERE id="new"').fetchone()[0] == 0

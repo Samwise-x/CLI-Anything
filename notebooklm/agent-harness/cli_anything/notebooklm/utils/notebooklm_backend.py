@@ -81,7 +81,7 @@ def sanitize_error(text: str) -> str:
     patterns = [
         r"/Users/[^/\s]+/\.notebooklm/storage_state\.json",
         r"/home/[^/\s]+/\.notebooklm/storage_state\.json",
-        r"[A-Za-z]:\\\\Users\\\\[^\\\s]+\\\\\.notebooklm\\\\storage_state\.json",
+        r"[A-Za-z]:\\Users\\[^\\/\s]+\\\.notebooklm\\storage_state\.json",
     ]
     sanitized = text
     for pattern in patterns:
