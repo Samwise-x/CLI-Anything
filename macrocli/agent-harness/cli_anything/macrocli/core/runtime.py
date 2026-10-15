@@ -101,8 +101,7 @@ def _check_condition(cond: MacroCondition, resolved_params: dict) -> Optional[st
                     return None
             return f"process_running: '{name}' not found."
         except ImportError:
-            # Can't verify — let it pass with a warning
-            return None
+            return f"process_running: cannot verify '{name}'; install psutil."
 
     elif ctype == "env_var":
         name = str(args)
@@ -116,8 +115,7 @@ def _check_condition(cond: MacroCondition, resolved_params: dict) -> Optional[st
         return None
 
     else:
-        # Unknown condition type — warn but don't block
-        return None
+        return f"Unknown condition type: '{ctype}'."
 
 
 # ── Runtime ──────────────────────────────────────────────────────────────────
@@ -162,6 +160,11 @@ class MacroRuntime:
             return ExecutionResult(
                 success=False, macro_name=macro_name, error=str(exc)
             )
+
+        structural_errors = macro.validate()
+        if structural_errors:
+            return ExecutionResult(success=False, macro_name=macro_name,
+                                   error="Invalid macro: " + "; ".join(structural_errors))
 
         # 2. Resolve + validate params
         resolved = macro.resolve_params(params)
@@ -216,7 +219,7 @@ class MacroRuntime:
 
         # 5. Check postconditions (skip if already failed)
         postcond_errors: list[str] = []
-        if not aborted:
+        if not aborted and not dry_run:
             postcond_errors = self.check_conditions(macro.postconditions, resolved)
 
         success = not aborted and not postcond_errors
@@ -253,7 +256,8 @@ class MacroRuntime:
             backends_used=backends_used,
             steps_run=len(step_results),
         )
-        self.session.record(record)
+        if not dry_run:
+            self.session.record(record)
 
         return ExecutionResult(
             success=success,

@@ -293,7 +293,7 @@ def _auto_snapshot(workflow_id: str, conn: dict[str, str], trigger: str) -> None
         warn("Could not save snapshot before this change")
 
 
-def _load_json_arg(value: str) -> dict[str, Any]:
+def _load_json_arg(value: str, *, require_object: bool = True) -> Any:
     """Parse a JSON string or read from file if prefixed with @. Must return dict."""
     if value.startswith("@"):
         filepath = Path(value[1:]).resolve()
@@ -309,7 +309,7 @@ def _load_json_arg(value: str) -> dict[str, Any]:
             data = json.loads(value)
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON: {e}")
-    if not isinstance(data, dict):
+    if require_object and not isinstance(data, dict):
         raise ValueError("JSON must be an object, not array or primitive")
     return data
 
@@ -1292,7 +1292,7 @@ def workflow_validate(ctx: click.Context, source: str) -> None:
     conn = _conn(ctx)
 
     if source.startswith("@"):
-        data = _load_json_arg(source)
+        data = _load_json_arg(source, require_object=False)
     else:
         data = workflows.get_workflow(source, **conn)
 
@@ -1300,19 +1300,24 @@ def workflow_validate(ctx: click.Context, source: str) -> None:
     warnings: list[str] = []
 
     # Check basic structure
+    if not isinstance(data, dict):
+        issues.append("Workflow must be a JSON object")
+        data = {}
     if not data.get("name"):
         issues.append("Missing workflow name")
     if not data.get("nodes"):
         issues.append("No nodes defined")
-    if not isinstance(data.get("connections", {}), dict):
+    connections = data.get("connections", {})
+    if not isinstance(connections, dict):
         issues.append("Invalid connections format (must be object)")
+        connections = {}
 
     nodes = data.get("nodes", [])
     if not isinstance(nodes, list):
         issues.append("Invalid nodes format (must be array)")
         nodes = []
     nodes = [n for n in nodes if isinstance(n, dict)]
-    node_names = {n.get("name") for n in nodes}
+    node_names = {n.get("name") for n in nodes if isinstance(n.get("name"), str)}
 
     # Check each node
     trigger_count = 0
@@ -1321,7 +1326,8 @@ def workflow_validate(ctx: click.Context, source: str) -> None:
             issues.append(f"Node '{node.get('name', '?')}' has no type")
         if not node.get("name"):
             issues.append(f"Node of type '{node.get('type', '?')}' has no name")
-        node_type_lower = node.get("type", "").lower()
+        node_type = node.get("type", "")
+        node_type_lower = node_type.lower() if isinstance(node_type, str) else ""
         if "trigger" in node_type_lower or "webhook" in node_type_lower:
             trigger_count += 1
 
@@ -1331,7 +1337,7 @@ def workflow_validate(ctx: click.Context, source: str) -> None:
         warnings.append(f"Multiple trigger nodes ({trigger_count}) — only one should be active")
 
     # Check connections reference existing nodes
-    for source_node, conns in data.get("connections", {}).items():
+    for source_node, conns in connections.items():
         if source_node not in node_names:
             issues.append(f"Connection from non-existent node: '{source_node}'")
         if isinstance(conns, dict):
@@ -1350,12 +1356,15 @@ def workflow_validate(ctx: click.Context, source: str) -> None:
     seen_names: set[str] = set()
     for node in nodes:
         name = node.get("name", "")
-        if name in seen_names:
+        if isinstance(name, str) and name in seen_names:
             issues.append(f"Duplicate node name: '{name}'")
-        seen_names.add(name)
+        if isinstance(name, str):
+            seen_names.add(name)
 
     if _json_flag(ctx):
         output({"valid": len(issues) == 0, "issues": issues, "warnings": warnings}, True)
+        if issues:
+            ctx.exit(1)
         return
 
     if issues:
@@ -1373,6 +1382,8 @@ def workflow_validate(ctx: click.Context, source: str) -> None:
     if not issues and not warnings:
         click.echo(f"  {len(nodes)} nodes, {trigger_count} trigger(s)")
     click.echo()
+    if issues:
+        ctx.exit(1)
 
 
 # ─── Workflow Autofix ───────────────────────────────────────────────────────

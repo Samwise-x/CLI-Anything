@@ -2,15 +2,14 @@
 
 Obsidian Local REST API plugin runs an HTTPS server (default: https://localhost:27124).
 Authentication is via Bearer token configured in the plugin settings.
-Uses self-signed certificate by default (verify=False).
+Loopback accepts the plugin's self-signed certificate; remote hosts verify TLS.
 """
 
-import requests
-import urllib3
-from typing import Any
+import os
+from urllib.parse import urlsplit
 
-# Suppress InsecureRequestWarning for self-signed certs
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+import requests
+from typing import Any
 
 # Default Obsidian Local REST API URL
 DEFAULT_BASE_URL = "https://localhost:27124"
@@ -25,13 +24,28 @@ def _headers(api_key: str, accept: str = "application/json",
     return h
 
 
+def _verify_tls(base_url: str) -> bool | str:
+    """Verify remote certificates; allow the plugin's self-signed loopback cert."""
+    parsed = urlsplit(base_url)
+    hostname = (parsed.hostname or "").lower()
+    is_loopback = hostname in {"localhost", "127.0.0.1", "::1"}
+    if not is_loopback and parsed.scheme.lower() != "https":
+        raise ValueError("Obsidian API credentials require HTTPS for non-loopback hosts")
+    ca_bundle = os.environ.get("OBSIDIAN_CA_BUNDLE")
+    if ca_bundle:
+        return ca_bundle
+    if is_loopback:
+        return False
+    return True
+
+
 def api_get(base_url: str, endpoint: str, api_key: str,
             params: dict | None = None, timeout: int = 30) -> Any:
     """Perform a GET request against the Obsidian REST API."""
     url = f"{base_url.rstrip('/')}{endpoint}"
     try:
         resp = requests.get(url, headers=_headers(api_key),
-                           params=params, timeout=timeout, verify=False)
+                           params=params, timeout=timeout, verify=_verify_tls(base_url))
         resp.raise_for_status()
         if resp.status_code == 204 or not resp.content:
             return {"status": "ok"}
@@ -62,7 +76,7 @@ def api_post(base_url: str, endpoint: str, api_key: str,
     try:
         resp = requests.post(url, headers=_headers(api_key),
                             json=data, params=params,
-                            timeout=timeout, verify=False)
+                            timeout=timeout, verify=_verify_tls(base_url))
         resp.raise_for_status()
         if resp.status_code == 204 or not resp.content:
             return {"status": "ok"}
@@ -100,7 +114,7 @@ def api_post_raw(base_url: str, endpoint: str, api_key: str,
         headers = _headers(api_key, content_type=content_type)
         resp = requests.post(url, headers=headers,
                              data=body.encode("utf-8"), params=params,
-                             timeout=timeout, verify=False)
+                             timeout=timeout, verify=_verify_tls(base_url))
         resp.raise_for_status()
         if resp.status_code == 204 or not resp.content:
             return {"status": "ok"}
@@ -131,7 +145,7 @@ def api_put(base_url: str, endpoint: str, api_key: str,
     try:
         headers = _headers(api_key, content_type=content_type)
         resp = requests.put(url, headers=headers, data=content.encode("utf-8"),
-                           timeout=timeout, verify=False)
+                           timeout=timeout, verify=_verify_tls(base_url))
         resp.raise_for_status()
         if resp.status_code == 204 or not resp.content:
             return {"status": "ok"}
@@ -160,7 +174,7 @@ def api_delete(base_url: str, endpoint: str, api_key: str,
     url = f"{base_url.rstrip('/')}{endpoint}"
     try:
         resp = requests.delete(url, headers=_headers(api_key),
-                              timeout=timeout, verify=False)
+                              timeout=timeout, verify=_verify_tls(base_url))
         resp.raise_for_status()
         if resp.status_code == 204 or not resp.content:
             return {"status": "ok"}
@@ -190,7 +204,7 @@ def is_available(api_key: str, base_url: str = DEFAULT_BASE_URL) -> bool:
             f"{base_url.rstrip('/')}/",
             headers={"Authorization": f"Bearer {api_key}"},
             timeout=5,
-            verify=False,
+            verify=_verify_tls(base_url),
         )
         return resp.status_code == 200
     except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):

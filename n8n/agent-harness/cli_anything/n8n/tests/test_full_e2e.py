@@ -212,6 +212,15 @@ class TestCLISubprocess:
         assert result.returncode == 0
         assert "valid" in result.stdout.lower()
 
+    def test_expression_validate_legacy_windows_encoding(self):
+        env = {**os.environ, "PYTHONIOENCODING": "cp1252", "NO_COLOR": "1"}
+        result = subprocess.run(
+            [*_resolve_cli(), "expression", "={{$json.name}}"],
+            capture_output=True, text=True, timeout=10, env=env,
+        )
+        assert result.returncode == 0
+        assert "valid" in result.stdout.lower()
+
     def test_expression_validate_help(self):
         result = subprocess.run(
             [*_resolve_cli(), "expression", "--help"], capture_output=True, text=True, timeout=10,
@@ -275,22 +284,23 @@ class TestWorkflowsE2E:
 
     def test_workflow_crud(self):
         _skip_if_no_n8n()
+        workflow_name = f"CLI-Anything Test WF {uuid.uuid4().hex}"
         wf = workflows.create_workflow(
-            {"name": "CLI-Anything Test WF", "nodes": [], "connections": {}, "settings": {}},
+            {"name": workflow_name, "nodes": [], "connections": {}, "settings": {}},
             base_url=N8N_URL, api_key=N8N_KEY,
         )
         wf_id = wf["id"]
 
         try:
             detail = workflows.get_workflow(wf_id, base_url=N8N_URL, api_key=N8N_KEY)
-            assert detail["name"] == "CLI-Anything Test WF"
+            assert detail["name"] == workflow_name
 
             updated = workflows.update_workflow(
                 wf_id,
-                {"name": "CLI-Anything Test WF Updated", "nodes": [], "connections": {}, "settings": {}},
+                {"name": f"{workflow_name} Updated", "nodes": [], "connections": {}, "settings": {}},
                 base_url=N8N_URL, api_key=N8N_KEY,
             )
-            assert updated["name"] == "CLI-Anything Test WF Updated"
+            assert updated["name"] == f"{workflow_name} Updated"
         finally:
             workflows.delete_workflow(wf_id, base_url=N8N_URL, api_key=N8N_KEY)
 

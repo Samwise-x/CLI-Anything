@@ -188,6 +188,17 @@ class ReplSkin:
             return text
         return f"{code}{text}{_RESET}"
 
+    @staticmethod
+    def _terminal_icon(stream, icon: str, fallback: str) -> str:
+        """Use a plain-text status marker when the active console cannot encode a glyph."""
+        encoding = getattr(stream, "encoding", None)
+        if encoding:
+            try:
+                icon.encode(encoding)
+            except (LookupError, UnicodeEncodeError):
+                return fallback
+        return icon
+
     # ── Banner ────────────────────────────────────────────────────────
 
     def print_banner(self):
@@ -344,22 +355,22 @@ class ReplSkin:
 
     def success(self, message: str):
         """Print a success message with green checkmark."""
-        icon = self._c(_GREEN + _BOLD, "✓")
+        icon = self._c(_GREEN + _BOLD, self._terminal_icon(sys.stdout, "✓", "+"))
         print(f"  {icon} {self._c(_GREEN, message)}")
 
     def error(self, message: str):
         """Print an error message with red cross."""
-        icon = self._c(_RED + _BOLD, "✗")
+        icon = self._c(_RED + _BOLD, self._terminal_icon(sys.stderr, "✗", "!"))
         print(f"  {icon} {self._c(_RED, message)}", file=sys.stderr)
 
     def warning(self, message: str):
         """Print a warning message with yellow triangle."""
-        icon = self._c(_YELLOW + _BOLD, "⚠")
+        icon = self._c(_YELLOW + _BOLD, self._terminal_icon(sys.stdout, "⚠", "!"))
         print(f"  {icon} {self._c(_YELLOW, message)}")
 
     def info(self, message: str):
         """Print an info message with blue dot."""
-        icon = self._c(_BLUE, "●")
+        icon = self._c(_BLUE, self._terminal_icon(sys.stdout, "●", "*"))
         print(f"  {icon} {self._c(_LIGHT_GRAY, message)}")
 
     def hint(self, message: str):

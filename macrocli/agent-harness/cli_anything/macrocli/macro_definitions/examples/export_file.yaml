@@ -24,8 +24,7 @@ parameters:
     description: Output format.
     enum: [plain, json, csv]
 
-preconditions:
-  - file_exists: /bin/echo    # sanity check: a real macro would check the app binary
+preconditions: []
 
 steps:
   - id: step_export
@@ -34,22 +33,14 @@ steps:
     params:
       # Replace this with your real export command, e.g.:
       # command: [inkscape, --export-filename, "${output}", "${input}"]
-      command: [echo, "Exported to ${output} (format=${format})"]
+      command: [python, "-c", "import pathlib,sys; pathlib.Path(sys.argv[1]).write_text('Exported to ' + sys.argv[1] + ' (format=' + sys.argv[2] + ')', encoding='utf-8')", "${output}", "${format}"]
       capture_stdout: true
     timeout_ms: 30000
     on_failure: fail
 
-  - id: step_write_output
-    backend: file_transform
-    action: text_replace
-    params:
-      input_file: /dev/null
-      output_file: ${output}
-      find: ""
-      replace: ""
-    on_failure: skip  # Writing the marker file is best-effort
-
-postconditions: []
+postconditions:
+  - file_exists: ${output}
+  - file_size_gt: ["${output}", 0]
 
 outputs:
   - name: exported_file

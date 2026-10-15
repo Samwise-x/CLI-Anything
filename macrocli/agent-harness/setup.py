@@ -39,6 +39,8 @@ setup(
         "prompt-toolkit>=3.0.0",
         "PyYAML>=6.0",
         "defusedxml>=0.7.1",
+        "filelock>=3.0",
+        "psutil>=5.9",
     ],
     extras_require={
         "dev": [
@@ -55,6 +57,7 @@ setup(
             "openai>=1.0.0",
             "mss>=9.0.0",
             "Pillow>=10.0.0",
+            "pynput>=1.7.0",
         ],
         "all": [
             "mss>=9.0.0",
@@ -62,6 +65,8 @@ setup(
             "numpy>=1.24.0",
             "pynput>=1.7.0",
             "openai>=1.0.0",
+            "pyautogui>=0.9.54",
+            "pywinauto>=0.6.8; sys_platform == 'win32'",
         ],
     },
     entry_points={

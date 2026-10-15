@@ -30,7 +30,7 @@ The Local REST API plugin exposes vault operations via an HTTPS server on `local
 
 Our CLI wraps the Obsidian Local REST API plugin with:
 
-1. **requests** — HTTP client for all API calls (HTTPS, self-signed cert)
+1. **requests** — HTTP client for all API calls
 2. **Bearer token** — Authentication via API key
 3. **Click CLI** — Structured command groups matching the API surface
 4. **REPL** — Interactive mode for exploratory use
@@ -44,7 +44,7 @@ Our CLI wraps the Obsidian Local REST API plugin with:
 | `/vault/{path}` | GET | Read note content |
 | `/vault/{path}` | PUT | Create/update note |
 | `/vault/{path}` | DELETE | Delete note |
-| `/vault/{path}` | PATCH | Append/prepend to note |
+| `/vault/{path}` | GET + PUT | Append/prepend by reading then writing the note |
 | `/search/` | POST | Structured search — Dataview DQL (`application/vnd.olrapi.dataview.dql+txt`) or JsonLogic (`application/vnd.olrapi.jsonlogic+json`) |
 | `/search/simple/` | POST | Plain text search |
 | `/active/` | GET | Get active note |
@@ -56,7 +56,9 @@ Our CLI wraps the Obsidian Local REST API plugin with:
 
 The Local REST API plugin generates an API key in its settings.
 Pass via `--api-key` flag or `OBSIDIAN_API_KEY` environment variable.
-All requests use HTTPS with a self-signed certificate (`verify=False`).
+Loopback uses the plugin's self-signed certificate. Remote HTTPS hosts verify
+certificates by default; set `OBSIDIAN_CA_BUNDLE` to trust a private CA. Remote
+HTTP is rejected because it would expose the bearer token.
 
 ## CLI → API Mapping
 

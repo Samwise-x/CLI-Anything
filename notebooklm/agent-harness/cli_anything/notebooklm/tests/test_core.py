@@ -61,6 +61,21 @@ class TestRunNotebooklm:
                 run_notebooklm(["login"], json_output=True)
         run_mock.assert_not_called()
 
+    def test_run_notebooklm_applies_a_bounded_timeout(self):
+        completed = type("Completed", (), {"returncode": 0, "stdout": "ok", "stderr": ""})()
+        with patch("cli_anything.notebooklm.utils.notebooklm_backend.require_notebooklm", return_value="notebooklm.exe"), \
+             patch("cli_anything.notebooklm.utils.notebooklm_backend.subprocess.run", return_value=completed) as run_mock:
+            assert run_notebooklm(["status"]) == "ok"
+        assert run_mock.call_args.kwargs["timeout"] == 120
+
+    def test_run_notebooklm_reports_a_timeout_without_stalling(self):
+        import subprocess
+
+        with patch("cli_anything.notebooklm.utils.notebooklm_backend.require_notebooklm", return_value="notebooklm.exe"), \
+             patch("cli_anything.notebooklm.utils.notebooklm_backend.subprocess.run", side_effect=subprocess.TimeoutExpired("notebooklm", 120)):
+            with pytest.raises(RuntimeError, match="timed out"):
+                run_notebooklm(["status"])
+
 
 class TestErrorSanitization:
     def test_sanitize_error_redacts_storage_state_path(self):
@@ -86,6 +101,12 @@ class TestSession:
 
         data = json.loads(Path(session_file).read_text())
         assert data["active_notebook"] is None
+
+    def test_non_object_session_state_is_recovered_as_empty(self, tmp_path):
+        session_file = tmp_path / "session.json"
+        session_file.write_text("[]", encoding="utf-8")
+
+        assert Session(session_file=session_file).get_active_notebook() is None
 
 
 class TestPackagingFixtures:

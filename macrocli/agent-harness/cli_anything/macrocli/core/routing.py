@@ -9,9 +9,8 @@ Priority order (higher = preferred):
   semantic_ui     50
   recovery        10  (only via explicit backend: recovery, or auto-retry)
 
-The router respects the step's explicit `backend:` field.
-It then checks availability; if the primary is unavailable it walks down
-the priority list.
+The router requires an explicit `backend:` field and fails closed when that
+backend is unavailable. Recovery is selected explicitly or by retry handling.
 """
 
 from __future__ import annotations
@@ -59,8 +58,8 @@ class RoutingEngine:
     def select(self, step: MacroStep) -> Backend:
         """Return the best available backend for the given step.
 
-        Respects step.backend if set; falls back down the priority list
-        if that backend is unavailable.
+        Requires step.backend and refuses to route to unrelated capabilities
+        when the requested backend is unavailable.
 
         Raises:
             RuntimeError: if no backend is available.
@@ -72,16 +71,8 @@ class RoutingEngine:
             if b.is_available():
                 return b
 
-        # Walk by priority (descending) for a fallback
-        for name in sorted(_BACKEND_PRIORITY, key=lambda k: -_BACKEND_PRIORITY[k]):
-            if name == "recovery":
-                continue  # Never auto-fall-through to recovery
-            b = self._backends.get(name)
-            if b and b.is_available():
-                return b
-
         raise RuntimeError(
-            f"No backend available for step '{step.id}' "
+            f"Requested backend unavailable for step '{step.id}' "
             f"(requested: '{requested}'). "
             "Check that required tools are installed."
         )

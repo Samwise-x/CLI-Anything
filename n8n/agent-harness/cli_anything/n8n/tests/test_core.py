@@ -6,6 +6,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
+from click.testing import CliRunner
 
 from cli_anything.n8n.core import (
     credentials,
@@ -16,6 +17,36 @@ from cli_anything.n8n.core import (
     workflows,
 )
 from cli_anything.n8n.utils import n8n_backend
+
+
+class TestWorkflowValidateMalformedFiles:
+    def test_non_object_connections_returns_structured_invalid_result(self, tmp_path):
+        from cli_anything.n8n.n8n_cli import cli
+
+        workflow_file = tmp_path / "invalid-connections.json"
+        workflow_file.write_text(json.dumps({
+            "name": "bad connections",
+            "nodes": [{"name": "Start", "type": "n8n-nodes-base.manualTrigger"}],
+            "connections": [],
+        }))
+        result = CliRunner().invoke(cli, ["--json", "workflow", "validate", f"@{workflow_file}"])
+
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["valid"] is False
+        assert any("Invalid connections format" in issue for issue in payload["issues"])
+
+    def test_non_object_document_returns_structured_invalid_result(self, tmp_path):
+        from cli_anything.n8n.n8n_cli import cli
+
+        workflow_file = tmp_path / "array-document.json"
+        workflow_file.write_text(json.dumps([{"name": "not a workflow"}]))
+        result = CliRunner().invoke(cli, ["--json", "workflow", "validate", f"@{workflow_file}"])
+
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["valid"] is False
+        assert any("Workflow must be a JSON object" in issue for issue in payload["issues"])
 
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
@@ -85,6 +116,11 @@ class TestBackend:
         n8n_backend.api_request("GET", "/test", base_url=BASE, api_key=KEY, timeout=120)
         _, kwargs = mock_req.call_args
         assert kwargs["timeout"] == 120
+
+    def test_base_url_already_containing_api_prefix_is_not_duplicated(self):
+        assert n8n_backend._url("https://n8n.example/api/v1/", "/workflows") == (
+            "https://n8n.example/api/v1/workflows"
+        )
 
 
 # ─── Workflows ──────────────────────────────────────────────────────────────

@@ -61,6 +61,8 @@ class MacroParameter:
             return errors
 
         if self.type == "integer":
+            if isinstance(value, bool) or isinstance(value, float):
+                return [f"Parameter '{self.name}' must be an integer."]
             if not isinstance(value, int):
                 try:
                     value = int(value)
@@ -71,6 +73,20 @@ class MacroParameter:
                 errors.append(f"Parameter '{self.name}' must be >= {self.min}.")
             if self.max is not None and value > self.max:
                 errors.append(f"Parameter '{self.name}' must be <= {self.max}.")
+
+        if self.type == "boolean" and not (isinstance(value, bool) or
+                isinstance(value, str) and value.lower() in {"true", "false"}):
+            errors.append(f"Parameter '{self.name}' must be a boolean.")
+        expected = {"string": str, "list": list, "dict": dict}.get(self.type)
+        if expected is not None and not isinstance(value, expected):
+            errors.append(f"Parameter '{self.name}' must be a {self.type}.")
+        if self.type == "float":
+            try:
+                import math
+                if isinstance(value, bool) or not math.isfinite(float(value)):
+                    raise ValueError("not a finite number")
+            except (TypeError, ValueError, OverflowError):
+                errors.append(f"Parameter '{self.name}' must be a finite float.")
 
         if self.enum and value not in self.enum:
             errors.append(
@@ -170,7 +186,18 @@ class MacroDefinition:
         if not self.steps:
             errors.append(f"Macro '{self.name}' has no steps.")
         valid_backends = {"native_api", "file_transform", "semantic_ui", "gui_macro", "recovery", "visual_anchor", "gui_agent"}
+        known_actions = {
+            "native_api": {"run_command", "find_executable", "start_process"},
+            "file_transform": {"json_get", "json_set", "json_delete", "xml_set_attr", "xml_get_attr", "text_replace", "copy_file"},
+            "gui_macro": {"replay"},
+            "semantic_ui": {"shortcut", "type_text", "menu_click", "button_click", "wait_for_window", "focus_window", "get_controls"},
+            "gui_agent": {"instruct", "instruct_with_refine"},
+        }
         for i, step in enumerate(self.steps):
+            if step.backend in known_actions and step.action not in known_actions[step.backend]:
+                errors.append(f"Step {i} has unknown action '{step.action}' for '{step.backend}'.")
+            if step.on_failure not in {"fail", "skip", "continue"}:
+                errors.append(f"Step {i} has invalid on_failure '{step.on_failure}'.")
             if step.backend not in valid_backends:
                 errors.append(
                     f"Step {i} has unknown backend '{step.backend}'. "

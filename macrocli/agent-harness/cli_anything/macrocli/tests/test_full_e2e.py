@@ -96,6 +96,18 @@ class TestFileTransformE2E:
         assert data["config"]["theme"] == "dark"
         print(f"\n  Modified JSON: {json_file} → {json.dumps(data)}")
 
+    def test_export_command_handles_legacy_windows_console_encoding(self, tmp_path):
+        output_file = tmp_path / "export.txt"
+        env = {**os.environ, "PYTHONIOENCODING": "cp1252", "NO_COLOR": "1"}
+        result = subprocess.run(
+            [*_resolve_cli("cli-anything-macrocli"), "macro", "run", "export_file",
+             "--param", f"output={output_file}", "--param", "format=json"],
+            capture_output=True, text=True, timeout=15, env=env,
+        )
+        assert result.returncode == 0
+        assert "Error:" not in result.stdout + result.stderr
+        assert output_file.is_file()
+
 
 class TestNativeAPIE2E:
     def test_run_real_command_and_capture(self, tmp_path):
@@ -116,7 +128,7 @@ class TestNativeAPIE2E:
                 backend: native_api
                 action: run_command
                 params:
-                  command: [date, "+%Y-%m-%d"]
+                  command: [python, "-c", "import datetime; print(datetime.date.today().isoformat())"]
                   capture_stdout: true
             postconditions: []
             outputs:
@@ -157,7 +169,7 @@ class TestNativeAPIE2E:
                 backend: native_api
                 action: run_command
                 params:
-                  command: [echo, should_not_run]
+                  command: [python, "-c", "import sys; print(sys.argv[1])", should_not_run]
         """)
         write_macro(tmp_path, "fail_abort", yaml_content)
         reg = MacroRegistry(str(tmp_path))
@@ -187,7 +199,7 @@ class TestNativeAPIE2E:
                 backend: native_api
                 action: run_command
                 params:
-                  command: [echo, still_ran]
+                  command: [python, "-c", "import sys; print(sys.argv[1])", still_ran]
         """)
         write_macro(tmp_path, "fail_skip", yaml_content)
         reg = MacroRegistry(str(tmp_path))
@@ -205,6 +217,7 @@ class TestPostconditionE2E:
         from cli_anything.macrocli.core.runtime import MacroRuntime
 
         output_file = tmp_path / "output.txt"
+        (tmp_path / "empty-input.txt").write_text("")
         yaml_content = textwrap.dedent(f"""\
             name: write_and_verify
             parameters:
@@ -216,7 +229,7 @@ class TestPostconditionE2E:
                 backend: file_transform
                 action: text_replace
                 params:
-                  input_file: /dev/null
+                  input_file: {str(tmp_path / "empty-input.txt").replace(chr(92), "/")}
                   output_file: ${{output}}
                   find: ""
                   replace: ""
@@ -235,6 +248,7 @@ class TestPostconditionE2E:
         from cli_anything.macrocli.core.runtime import MacroRuntime
 
         output_file = tmp_path / "output.txt"
+        (tmp_path / "empty-input.txt").write_text("")
         output_file.write_text("x" * 200, encoding="utf-8")
 
         yaml_content = textwrap.dedent(f"""\
@@ -248,7 +262,7 @@ class TestPostconditionE2E:
                 backend: native_api
                 action: run_command
                 params:
-                  command: [echo, noop]
+                  command: [python, "-c", "import sys; print(sys.argv[1])", noop]
             postconditions:
               - file_size_gt:
                   - ${{output}}

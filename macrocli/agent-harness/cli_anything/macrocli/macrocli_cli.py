@@ -51,6 +51,16 @@ def get_session() -> ExecutionSession:
     return _session
 
 
+def _status_icon(stream, icon: str, fallback: str) -> str:
+    encoding = getattr(stream, "encoding", None)
+    if encoding:
+        try:
+            icon.encode(encoding)
+        except (LookupError, UnicodeEncodeError):
+            return fallback
+    return icon
+
+
 # ── Output helpers ────────────────────────────────────────────────────────────
 
 def output(data, message: str = ""):
@@ -219,13 +229,15 @@ def macro_run(name, param, macro_file):
         output(result.to_dict())
     else:
         if result.success:
-            click.echo(f"✓ Macro '{name}' completed successfully.")
+            marker = _status_icon(sys.stdout, "✓", "+")
+            click.echo(f"{marker} Macro '{name}' completed successfully.")
             if result.output:
                 for k, v in result.output.items():
                     if not k.startswith("_"):
                         click.echo(f"  {k}: {v}")
         else:
-            click.echo(f"✗ Macro '{name}' failed.", err=True)
+            marker = _status_icon(sys.stderr, "✗", "!")
+            click.echo(f"{marker} Macro '{name}' failed.", err=True)
             click.echo(f"  {result.error}", err=True)
         if result.telemetry:
             click.echo(
@@ -363,6 +375,8 @@ def macro_dry_run(name, param):
             click.echo(f"  Steps: {len(result.step_results)}")
         else:
             click.echo(f"  Would fail: {result.error}", err=True)
+    if not result.success and not _repl_mode:
+        sys.exit(1)
 
 
 @macro.command("define")

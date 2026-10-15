@@ -7,6 +7,7 @@ Usage:
 """
 
 import os
+import uuid
 import pytest
 from click.testing import CliRunner
 
@@ -21,7 +22,7 @@ pytestmark = pytest.mark.skipif(
     reason="Obsidian REST API not available (set OBSIDIAN_API_KEY and ensure Obsidian is running)"
 )
 
-TEST_NOTE = "_cli_anything_test_note.md"
+TEST_NOTE = f"_cli_anything_test_{uuid.uuid4().hex}.md"
 TEST_CONTENT = "# Test Note\n\nCreated by cli-anything-obsidian E2E tests."
 
 
@@ -53,32 +54,26 @@ class TestVaultE2E:
 
     def test_vault_create_read_delete(self, runner):
         import json
-        # Create
-        result = runner.invoke(cli, ["--json", "--api-key", API_KEY, "vault", "create",
-                                     TEST_NOTE, "--content", TEST_CONTENT])
-        assert result.exit_code == 0
-
-        # Read
-        result = runner.invoke(cli, ["--json", "--api-key", API_KEY, "vault", "read", TEST_NOTE])
-        assert result.exit_code == 0
-        data = json.loads(result.output)
-        assert "Test Note" in data.get("content", "")
-
-        # Delete
-        result = runner.invoke(cli, ["--json", "--api-key", API_KEY, "vault", "delete", TEST_NOTE])
-        assert result.exit_code == 0
+        try:
+            result = runner.invoke(cli, ["--json", "--api-key", API_KEY, "vault", "create",
+                                         TEST_NOTE, "--content", TEST_CONTENT])
+            assert result.exit_code == 0
+            result = runner.invoke(cli, ["--json", "--api-key", API_KEY, "vault", "read", TEST_NOTE])
+            assert result.exit_code == 0
+            data = json.loads(result.output)
+            assert "Test Note" in data.get("content", "")
+        finally:
+            runner.invoke(cli, ["--api-key", API_KEY, "vault", "delete", TEST_NOTE])
 
     def test_vault_append(self, runner):
-        import json
-        # Create note first
-        runner.invoke(cli, ["--api-key", API_KEY, "vault", "create",
-                           TEST_NOTE, "--content", TEST_CONTENT])
-        # Append
-        result = runner.invoke(cli, ["--json", "--api-key", API_KEY, "vault", "append",
-                                     TEST_NOTE, "--content", "\n\nAppended line."])
-        assert result.exit_code == 0
-        # Cleanup
-        runner.invoke(cli, ["--api-key", API_KEY, "vault", "delete", TEST_NOTE])
+        try:
+            runner.invoke(cli, ["--api-key", API_KEY, "vault", "create",
+                               TEST_NOTE, "--content", TEST_CONTENT])
+            result = runner.invoke(cli, ["--json", "--api-key", API_KEY, "vault", "append",
+                                         TEST_NOTE, "--content", "\n\nAppended line."])
+            assert result.exit_code == 0
+        finally:
+            runner.invoke(cli, ["--api-key", API_KEY, "vault", "delete", TEST_NOTE])
 
 
 class TestSearchE2E:

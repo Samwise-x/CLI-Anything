@@ -74,6 +74,18 @@ class TestCommandRouting:
         assert result.exit_code == 0
         assert calls == [(["auth", "check"], {"json_output": False})]
 
+    def test_auth_check_exposes_passive_network_probe(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(
+            "cli_anything.notebooklm.notebooklm_cli.run_notebooklm",
+            lambda args, **kwargs: calls.append((args, kwargs)) or {"ok": True},
+        )
+
+        result = CliRunner().invoke(cli, ["--json", "auth", "check", "--test", "--passive"])
+
+        assert result.exit_code == 0
+        assert calls == [(["auth", "check", "--test", "--passive"], {"json_output": True})]
+
 
 class TestModuleExecution:
     def test_python_m_module_help_emits_output(self):

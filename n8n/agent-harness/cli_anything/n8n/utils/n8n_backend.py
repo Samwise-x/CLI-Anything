@@ -42,6 +42,8 @@ def _url(base_url: str | None, path: str) -> str:
             "n8n base URL not configured. Set N8N_BASE_URL env var or pass --url."
         )
     api_prefix = f"/api/{API_VERSION}"
+    if base.endswith(api_prefix):
+        base = base[:-len(api_prefix)]
     if path.startswith("/api/"):
         return f"{base}{path}"
     return f"{base}{api_prefix}{path}"

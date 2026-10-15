@@ -58,6 +58,7 @@ cli-anything-notebooklm --json notebook list
 ## Agent Workflow
 
 1. Check auth with `cli-anything-notebooklm auth status`
+   For a read-only account/network probe, use `auth check --test --passive`.
 2. Discover notebook IDs with `cli-anything-notebooklm --json notebook list`
 3. Use explicit `--notebook` for follow-up commands
 4. Prefer `--json` only where the upstream `notebooklm` command supports it

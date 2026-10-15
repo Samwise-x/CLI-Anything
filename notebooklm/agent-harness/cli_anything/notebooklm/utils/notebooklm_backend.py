@@ -95,6 +95,7 @@ def run_notebooklm(
     *,
     notebook_id: str | None = None,
     json_output: bool = False,
+    timeout: float = 120,
 ) -> dict | str:
     """Run notebooklm and optionally parse JSON output."""
     if json_output and not command_supports_json(args):
@@ -109,12 +110,16 @@ def run_notebooklm(
     )
     command[0] = require_notebooklm()
 
-    result = subprocess.run(
-        command,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"notebooklm command timed out after {timeout:g} seconds") from exc
 
     if result.returncode != 0:
         raise RuntimeError(sanitize_error(result.stderr or result.stdout))
