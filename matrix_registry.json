@@ -363,7 +363,6 @@
       "clis": [
         "exa",
         "browser",
-        "safari",
         "clibrowser",
         "zotero",
         "obsidian",
@@ -384,7 +383,7 @@
           "skill_search_hints": ["web search", "literature search", "academic search", "search API"],
           "providers": [
             {"kind": "harness-cli", "name": "cli-anything-exa", "requires": {"binary": ["cli-anything-exa"], "env": ["EXA_API_KEY"]}, "cost_tier": "metered", "quality_tier": "sota", "offline": false},
-            {"kind": "harness-cli", "name": "cli-anything-browser / safari / clibrowser", "requires": {"binary": ["cli-anything-browser"]}, "cost_tier": "free", "quality_tier": "high", "offline": false, "notes": "Browser-driven search and navigation; cli-anything-safari (macOS) and clibrowser are equivalent harness paths."},
+            {"kind": "harness-cli", "name": "cli-anything-browser / clibrowser", "requires": {"binary": ["cli-anything-browser"]}, "cost_tier": "free", "quality_tier": "high", "offline": false, "notes": "Browser-driven search and navigation; clibrowser is an equivalent harness path."},
             {"kind": "python", "name": "duckduckgo-search", "requires": {"package": ["duckduckgo_search"]}, "cost_tier": "free", "quality_tier": "good", "offline": false},
             {"kind": "python", "name": "googlesearch-python", "requires": {"package": ["googlesearch"]}, "cost_tier": "free", "quality_tier": "good", "offline": false},
             {"kind": "api", "name": "Perplexity API", "requires": {"env": ["PERPLEXITY_API_KEY"]}, "cost_tier": "paid", "quality_tier": "sota", "offline": false},
@@ -400,7 +399,7 @@
           "outputs": ["article_text:path[]", "page_snapshots:path[]"],
           "skill_search_hints": ["web scraping", "article extraction", "readability", "headless browser"],
           "providers": [
-            {"kind": "harness-cli", "name": "cli-anything-browser / safari / clibrowser", "requires": {"binary": ["cli-anything-browser"]}, "cost_tier": "free", "quality_tier": "high", "offline": false},
+            {"kind": "harness-cli", "name": "cli-anything-browser / clibrowser", "requires": {"binary": ["cli-anything-browser"]}, "cost_tier": "free", "quality_tier": "high", "offline": false},
             {"kind": "python", "name": "trafilatura", "requires": {"package": ["trafilatura"]}, "cost_tier": "free", "quality_tier": "high", "offline": true, "notes": "Best default extractor; extraction also works offline on saved HTML."},
             {"kind": "python", "name": "readability-lxml", "requires": {"package": ["readability"]}, "cost_tier": "free", "quality_tier": "good", "offline": true},
             {"kind": "python", "name": "httpx + manual parse", "requires": {"package": ["httpx"]}, "cost_tier": "free", "quality_tier": "basic", "offline": true},

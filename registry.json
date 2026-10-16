@@ -82,25 +82,6 @@
       ]
     },
     {
-      "name": "nslogger",
-      "display_name": "NSLogger",
-      "version": "0.1.0",
-      "description": "Capture, parse, filter, export, and mirror NSLogger iOS/macOS logs from the CLI",
-      "requires": "macOS for native Bonjour live capture; Python 3.10+",
-      "homepage": "https://github.com/fpillet/NSLogger",
-      "source_url": null,
-      "install_cmd": "pip install git+https://github.com/HKUDS/CLI-Anything.git#subdirectory=nslogger/agent-harness",
-      "entry_point": "cli-anything-nslogger",
-      "skill_md": "skills/cli-anything-nslogger/SKILL.md",
-      "category": "devops",
-      "contributors": [
-        {
-          "name": "bazinga8023",
-          "url": "https://github.com/bazinga8023"
-        }
-      ]
-    },
-    {
       "name": "anygen",
       "display_name": "AnyGen",
       "version": "1.0.0",
@@ -807,25 +788,6 @@
       ]
     },
     {
-      "name": "iterm2",
-      "display_name": "iTerm2",
-      "version": "1.0.0",
-      "description": "Control a running iTerm2 instance — manage windows, tabs, split panes, send text, read output, run tmux -CC, broadcast keystrokes, and configure preferences.",
-      "requires": "iTerm2.app (macOS only)",
-      "homepage": "https://iterm2.com",
-      "source_url": null,
-      "install_cmd": "pip install git+https://github.com/HKUDS/CLI-Anything.git#subdirectory=iterm2/agent-harness",
-      "entry_point": "cli-anything-iterm2",
-      "skill_md": "skills/cli-anything-iterm2/SKILL.md",
-      "category": "devops",
-      "contributors": [
-        {
-          "name": "voidfreud",
-          "url": "https://github.com/voidfreud"
-        }
-      ]
-    },
-    {
       "name": "slay_the_spire_ii",
       "display_name": "Slay the Spire 2",
       "version": "1.0.0",
@@ -1191,25 +1153,6 @@
       ]
     },
     {
-      "name": "safari",
-      "display_name": "Safari",
-      "version": "1.0.0",
-      "description": "Native macOS Safari browser automation via safari-mcp — 84 tools for navigation, DOM, forms, network capture, and screenshots",
-      "requires": "macOS, Safari, safari-mcp (npm install -g safari-mcp)",
-      "homepage": "https://github.com/achiya-automation/safari-mcp",
-      "source_url": null,
-      "install_cmd": "pip install git+https://github.com/HKUDS/CLI-Anything.git#subdirectory=safari/agent-harness",
-      "entry_point": "cli-anything-safari",
-      "skill_md": "skills/cli-anything-safari/SKILL.md",
-      "category": "web",
-      "contributors": [
-        {
-          "name": "achiya-automation",
-          "url": "https://github.com/achiya-automation"
-        }
-      ]
-    },
-    {
       "name": "macrocli",
       "display_name": "MacroCLI",
       "version": "1.0.0",
@@ -1244,25 +1187,6 @@
         {
           "name": "collectivewinca",
           "url": "https://github.com/collectivewinca"
-        }
-      ]
-    },
-    {
-      "name": "quietshrink",
-      "display_name": "QuietShrink",
-      "version": "1.0.0",
-      "description": "Compress macOS screen recordings on Apple Silicon — 70-90% smaller files at visually lossless quality, hardware-encoded, computer stays silent",
-      "requires": "ffmpeg with hevc_videotoolbox + the quietshrink bash CLI (curl -fsSL https://raw.githubusercontent.com/achiya-automation/quietshrink/main/install.sh | bash)",
-      "homepage": "https://github.com/achiya-automation/quietshrink",
-      "source_url": null,
-      "install_cmd": "pip install git+https://github.com/HKUDS/CLI-Anything.git#subdirectory=quietshrink/agent-harness",
-      "entry_point": "cli-anything-quietshrink",
-      "skill_md": "skills/cli-anything-quietshrink/SKILL.md",
-      "category": "video",
-      "contributors": [
-        {
-          "name": "achiya-automation",
-          "url": "https://github.com/achiya-automation"
         }
       ]
     },
