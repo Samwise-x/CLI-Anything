@@ -29,13 +29,13 @@ class ChromaDBBackend:
 
     def heartbeat(self) -> dict:
         """Check server health."""
-        r = self._session.get(f"{self.base_url}/api/v2/heartbeat")
+        r = self._session.get(f"{self.base_url}/api/v2/heartbeat", timeout=30)
         r.raise_for_status()
         return r.json()
 
     def version(self) -> str:
         """Get server version."""
-        r = self._session.get(f"{self.base_url}/api/v2/version")
+        r = self._session.get(f"{self.base_url}/api/v2/version", timeout=30)
         r.raise_for_status()
         return r.json()
 
@@ -43,7 +43,7 @@ class ChromaDBBackend:
 
     def list_collections(self) -> list[dict]:
         """List all collections."""
-        r = self._session.get(f"{self._tenant_db_prefix}/collections")
+        r = self._session.get(f"{self._tenant_db_prefix}/collections", timeout=30)
         r.raise_for_status()
         return r.json()
 
@@ -55,19 +55,20 @@ class ChromaDBBackend:
         r = self._session.post(
             f"{self._tenant_db_prefix}/collections",
             json=body,
+            timeout=30,
         )
         r.raise_for_status()
         return r.json()
 
     def get_collection(self, name: str) -> dict:
         """Get collection info by name."""
-        r = self._session.get(f"{self._tenant_db_prefix}/collections/{name}")
+        r = self._session.get(f"{self._tenant_db_prefix}/collections/{name}", timeout=30)
         r.raise_for_status()
         return r.json()
 
     def delete_collection(self, name: str) -> bool:
         """Delete a collection by name."""
-        r = self._session.delete(f"{self._tenant_db_prefix}/collections/{name}")
+        r = self._session.delete(f"{self._tenant_db_prefix}/collections/{name}", timeout=30)
         r.raise_for_status()
         return True
 
@@ -86,6 +87,7 @@ class ChromaDBBackend:
         r = self._session.post(
             f"{self._tenant_db_prefix}/collections/{collection_id}/add",
             json=body,
+            timeout=30,
         )
         r.raise_for_status()
         return r.json() if r.text else {"status": "ok"}
@@ -104,6 +106,7 @@ class ChromaDBBackend:
         r = self._session.post(
             f"{self._tenant_db_prefix}/collections/{collection_id}/get",
             json=body,
+            timeout=30,
         )
         r.raise_for_status()
         return r.json()
@@ -114,6 +117,7 @@ class ChromaDBBackend:
         r = self._session.post(
             f"{self._tenant_db_prefix}/collections/{collection_id}/delete",
             json=body,
+            timeout=30,
         )
         r.raise_for_status()
         return r.json() if r.text else {"status": "ok"}
@@ -123,6 +127,7 @@ class ChromaDBBackend:
         r = self._session.post(
             f"{self._tenant_db_prefix}/collections/{collection_id}/count",
             json={},
+            timeout=30,
         )
         r.raise_for_status()
         return r.json()
@@ -139,6 +144,7 @@ class ChromaDBBackend:
         r = self._session.post(
             f"{self._tenant_db_prefix}/collections/{collection_id}/query",
             json=body,
+            timeout=30,
         )
         r.raise_for_status()
         return r.json()

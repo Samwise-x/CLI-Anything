@@ -239,6 +239,15 @@ class TestPrivateNetworkBlocking:
         assert not is_valid
         assert "blocked" in error.lower()
 
+    def test_decimal_ipv4_loopback_not_accepted_when_private_block_enabled(self, monkeypatch):
+        monkeypatch.setenv("CLI_ANYTHING_BROWSER_BLOCK_PRIVATE", "true")
+        _reload_security_module()
+
+        is_valid, error = validate_url("http://2130706433")
+
+        assert not is_valid
+        assert "blocked" in error.lower()
+
     def test_127_0_0_1_blocked_when_enabled(self, monkeypatch):
         """When enabled, 127.0.0.1 should be blocked."""
         monkeypatch.setenv("CLI_ANYTHING_BROWSER_BLOCK_PRIVATE", "true")

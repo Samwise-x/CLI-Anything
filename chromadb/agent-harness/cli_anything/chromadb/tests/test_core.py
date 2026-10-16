@@ -71,7 +71,7 @@ class TestBackendServerCommands:
         b = ChromaDBBackend()
         result = b.heartbeat()
 
-        mock_session.get.assert_called_with("http://localhost:8000/api/v2/heartbeat")
+        mock_session.get.assert_called_with("http://localhost:8000/api/v2/heartbeat", timeout=30)
         assert result == {"nanosecond_heartbeat": 1234567890}
 
     @patch("cli_anything.chromadb.utils.chromadb_backend.requests.Session")
@@ -86,7 +86,7 @@ class TestBackendServerCommands:
         b = ChromaDBBackend()
         result = b.version()
 
-        mock_session.get.assert_called_with("http://localhost:8000/api/v2/version")
+        mock_session.get.assert_called_with("http://localhost:8000/api/v2/version", timeout=30)
         assert result == "0.6.0"
 
 
@@ -147,6 +147,7 @@ class TestBackendCollections:
         b.get_collection("hub_knowledge")
         called_url = b._session.get.call_args[0][0]
         assert called_url.endswith("/collections/hub_knowledge")
+        assert b._session.get.call_args.kwargs.get("timeout") == 30
 
     def test_delete_collection_returns_true(self):
         b = self._make_backend()
@@ -403,3 +404,15 @@ class TestCLIParsing:
         """Verify --host flag is accepted (even if connection fails)."""
         result = runner.invoke(cli, ["--host", "http://fake:9999", "server", "--help"])
         assert result.exit_code == 0
+
+
+def test_heartbeat_uses_finite_request_timeout():
+    backend = ChromaDBBackend()
+    backend._session = MagicMock()
+    response = MagicMock()
+    response.json.return_value = {"ok": True}
+    backend._session.get.return_value = response
+
+    backend.heartbeat()
+
+    assert backend._session.get.call_args.kwargs.get("timeout") == 30

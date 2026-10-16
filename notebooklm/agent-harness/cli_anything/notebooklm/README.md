@@ -41,6 +41,9 @@ cli-anything-notebooklm --help
 # Check auth state (wraps `notebooklm auth check`)
 cli-anything-notebooklm auth status
 
+# Verify account access without refreshing tokens or writing auth state
+cli-anything-notebooklm --json auth check --test --passive
+
 # List notebooks
 cli-anything-notebooklm notebook list
 ```
@@ -80,6 +83,7 @@ cli-anything-notebooklm artifact generate-report --notebook nb_123
 - Prefer explicit notebook IDs with `--notebook` instead of relying on ambient state.
 - Use `--json` only on commands whose upstream `notebooklm` subcommand supports machine-readable output.
 - Treat NotebookLM auth state as sensitive local data and never print cookie or storage files.
+- Use `auth check --test --passive` for an unattended network readiness probe.
 - Treat this harness as a thin wrapper around `notebooklm`, not a reimplementation of NotebookLM.
 
 ## Acknowledgements

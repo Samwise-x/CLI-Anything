@@ -17,29 +17,29 @@ MAX_HISTORY = 200
 
 
 def _locked_save_json(path: str, data, **dump_kwargs) -> None:
-    """Atomically write JSON with exclusive file locking."""
-    try:
-        f = open(path, "r+")
-    except FileNotFoundError:
-        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
-        f = open(path, "w")
-    with f:
-        _locked = False
+    """Publish complete JSON under a cross-platform writer lock."""
+    import tempfile
+    from filelock import FileLock
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with FileLock(str(destination) + ".lock", timeout=10):
+        descriptor, temporary = tempfile.mkstemp(dir=destination.parent, prefix=".session-")
         try:
-            import fcntl
-            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-            _locked = True
-        except (ImportError, OSError):
-            pass
-        try:
-            f.seek(0)
-            f.truncate()
-            json.dump(data, f, **dump_kwargs)
-            f.flush()
+            with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+                json.dump(data, stream, **dump_kwargs)
+                stream.flush()
+                os.fsync(stream.fileno())
+            for attempt in range(20):
+                try:
+                    os.replace(temporary, destination)
+                    break
+                except PermissionError:
+                    if attempt == 19:
+                        raise
+                    time.sleep(0.01)
         finally:
-            if _locked:
-                import fcntl
-                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+            if os.path.exists(temporary):
+                os.unlink(temporary)
 
 
 class RunRecord:
@@ -100,6 +100,9 @@ class ExecutionSession:
 
     def __init__(self, session_id: Optional[str] = None):
         self.session_id = session_id or f"session_{int(time.time())}"
+        import re
+        if self.session_id in {".", ".."} or not re.fullmatch(r"[A-Za-z0-9_.-]+", self.session_id):
+            raise ValueError("Invalid session id: use letters, numbers, dots, underscores or hyphens")
         self._history: list[RunRecord] = []
 
     # ── Record management ─────────────────────────────────────────────
@@ -157,6 +160,7 @@ class ExecutionSession:
     @classmethod
     def load(cls, session_id: str) -> Optional["ExecutionSession"]:
         """Load a session from disk."""
+        cls(session_id=session_id)  # validate before resolving any path
         path = SESSION_DIR / f"{session_id}.json"
         if not path.is_file():
             return None

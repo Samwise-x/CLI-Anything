@@ -161,10 +161,7 @@ class CliEntrypointTests(unittest.TestCase):
             )
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         self.assertIn("Skill:", result.stdout)
-        self.assertIn(
-            str(REPO_ROOT / "agent-harness" / "cli_anything" / "mubu" / "skills" / "SKILL.md"),
-            result.stdout,
-        )
+        self.assertRegex(result.stdout, r"Skill: .*/skills/cli-anything-mubu/SKILL\.md")
 
     def test_repl_can_store_current_doc_reference(self):
         result = self.run_cli(

@@ -619,3 +619,31 @@ class TestRuntimeCheck:
         assert len(info.textures) > 0
         # Should have Idle group
         assert "Idle" in info.motions
+
+
+def test_restore_rejects_backup_path_traversal(tmp_path):
+    model_path = tmp_path / "model.model3.json"
+    model_path.write_text('{"original": true}')
+    _backup_dir_for(model_path).mkdir(parents=True)
+    secret_path = tmp_path / "outside.model3.json"
+    secret_path.write_text('{"outside": true}')
+
+    with pytest.raises(ValueError, match="backup name"):
+        restore(model_path, "../../outside.model3.json")
+
+    assert model_path.read_text() == '{"original": true}'
+
+
+def test_snapshot_rejects_symlinked_backup_directory(tmp_path):
+    model_path = tmp_path / "model.model3.json"
+    model_path.write_text('{"model": true}')
+    external_dir = tmp_path / "external"
+    external_dir.mkdir()
+    backup_dir = _backup_dir_for(model_path)
+    backup_dir.parent.mkdir(parents=True)
+    backup_dir.symlink_to(external_dir, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="backup directory must not be a symlink"):
+        snapshot(model_path)
+
+    assert list(external_dir.iterdir()) == []

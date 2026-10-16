@@ -2429,3 +2429,12 @@ class TestAssetRenameMove:
         assert result["file_moved"] is False
         assert result["references_would_update"] == 2
         assert os.path.isfile( os.path.join( proj_dir, "Assets", "models", "team", "widget.vmdl" ) )
+
+
+def test_create_project_rejects_path_traversal_name(tmp_path):
+    import pytest
+
+    outside_project_file = tmp_path / "escaped.sbproj"
+    with pytest.raises(ValueError, match="project name"):
+        create_project("../escaped", output_dir=str(tmp_path / "project"))
+    assert not outside_project_file.exists()

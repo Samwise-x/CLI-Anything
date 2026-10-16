@@ -34,6 +34,14 @@ _api_key = ""
 _last_path: str = ""
 
 
+def _repl_cli_args(args: list[str]) -> list[str]:
+    """Reapply root CLI context when a REPL command is parsed recursively."""
+    prefix = ["--host", _host, "--api-key", _api_key]
+    if _json_output:
+        prefix.append("--json")
+    return [*prefix, *args]
+
+
 def output(data, message: str = ""):
     if _json_output:
         click.echo(json.dumps(data, indent=2, default=str))
@@ -340,7 +348,7 @@ def command_list():
     if _json_output:
         output(result)
     else:
-        commands = result.get("commands", result if isinstance(result, list) else [])
+        commands = result if isinstance(result, list) else result.get("commands", [])
         if not commands:
             click.echo("No commands available.")
             return
@@ -442,7 +450,7 @@ def repl():
             except ValueError:
                 args = line.split()
             try:
-                cli.main(args, standalone_mode=False)
+                cli.main(_repl_cli_args(args), standalone_mode=False)
             except SystemExit:
                 pass
             except click.exceptions.UsageError as e:

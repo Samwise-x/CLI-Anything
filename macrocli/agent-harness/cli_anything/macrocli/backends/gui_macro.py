@@ -68,14 +68,12 @@ class GUIMacroBackend(Backend):
         return self._replay(step_params, context, t0)
 
     def is_available(self) -> bool:
-        """Available when at least one automation library is present."""
-        for lib in ("pyautogui", "pynput"):
-            try:
-                __import__(lib)
-                return True
-            except ImportError:
-                pass
-        return False
+        """Input replay requires pyautogui, not just a recording library."""
+        try:
+            import pyautogui  # noqa: F401
+            return True
+        except ImportError:
+            return False
 
     def _replay(self, p: dict, context: BackendContext, t0: float) -> StepResult:
         """Load and replay a compiled macro file."""
@@ -152,6 +150,18 @@ class GUIMacroBackend(Backend):
 
     def _execute_steps(self, steps: list, context: BackendContext) -> int:
         """Execute each step in the compiled macro."""
+        allowed = {"click", "key", "type", "wait_file", "sleep"}
+        for step in steps:
+            if not isinstance(step, dict) or step.get("type") not in allowed:
+                raise ValueError(f"Unknown compiled GUI step: {step!r}")
+        deadline = time.monotonic() + context.timeout_ms / 1000.0
+
+        def bounded_sleep(seconds):
+            remaining = deadline - time.monotonic()
+            if seconds < 0 or remaining <= 0 or seconds > remaining:
+                raise TimeoutError("GUI replay step budget exceeded")
+            time.sleep(seconds)
+
         try:
             import pyautogui
             has_pyautogui = True
@@ -160,6 +170,8 @@ class GUIMacroBackend(Backend):
 
         count = 0
         for s in steps:
+            if time.monotonic() >= deadline:
+                raise TimeoutError("GUI replay step budget exceeded")
             stype = s.get("type", "")
             delay = s.get("delay_ms", 100) / 1000.0
 
@@ -184,22 +196,22 @@ class GUIMacroBackend(Backend):
                 pyautogui.typewrite(s.get("text", ""), interval=0.03)
 
             elif stype == "wait_file":
-                deadline = time.time() + s.get("timeout_ms", 5000) / 1000.0
+                wait_deadline = min(deadline, time.monotonic() + s.get("timeout_ms", 5000) / 1000.0)
                 path = s.get("path", "")
-                while time.time() < deadline:
+                while time.monotonic() < wait_deadline:
                     if Path(path).exists():
                         break
-                    time.sleep(0.1)
+                    bounded_sleep(min(0.1, max(0, wait_deadline - time.monotonic())))
                 else:
                     raise TimeoutError(f"wait_file timed out: {path}")
                 delay = 0  # no additional delay after file wait
 
             elif stype == "sleep":
-                time.sleep(s.get("ms", 500) / 1000.0)
+                bounded_sleep(s.get("ms", 500) / 1000.0)
                 delay = 0
 
             if delay > 0:
-                time.sleep(delay)
+                bounded_sleep(delay)
             count += 1
 
         return count

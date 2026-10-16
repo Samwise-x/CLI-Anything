@@ -49,4 +49,5 @@ def save_config(host: str, port: int, username: str, password: str,
             "https": https}
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
+    path.chmod(0o600)
     return path

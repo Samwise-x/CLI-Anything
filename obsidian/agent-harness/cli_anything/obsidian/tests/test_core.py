@@ -13,6 +13,22 @@ class TestBackend:
         from cli_anything.obsidian.utils.obsidian_backend import DEFAULT_BASE_URL
         assert DEFAULT_BASE_URL == "https://localhost:27124"
 
+    def test_remote_host_verifies_tls_by_default(self):
+        from cli_anything.obsidian.utils.obsidian_backend import _verify_tls
+        assert _verify_tls("https://vault.example:27124") is True
+
+    def test_custom_ca_bundle_is_used_for_remote_host(self, monkeypatch, tmp_path):
+        from cli_anything.obsidian.utils.obsidian_backend import _verify_tls
+        ca_bundle = tmp_path / "obsidian-ca.pem"
+        ca_bundle.write_text("fixture")
+        monkeypatch.setenv("OBSIDIAN_CA_BUNDLE", str(ca_bundle))
+        assert _verify_tls("https://vault.example:27124") == str(ca_bundle)
+
+    def test_remote_http_is_rejected_before_sending_bearer_token(self):
+        from cli_anything.obsidian.utils.obsidian_backend import _verify_tls
+        with pytest.raises(ValueError, match="require HTTPS"):
+            _verify_tls("http://vault.example:27124")
+
     @patch("cli_anything.obsidian.utils.obsidian_backend.requests.get")
     def test_is_available_true(self, mock_get):
         from cli_anything.obsidian.utils.obsidian_backend import is_available
@@ -197,6 +213,21 @@ class TestVaultModule:
         result = read_note("https://localhost:27124", "test-key", "note.md")
         assert result["content"] == "# Hello\nWorld"
 
+    @patch("cli_anything.obsidian.core.vault.api_get")
+    def test_read_note_encodes_url_delimiters_in_path(self, mock_api):
+        from cli_anything.obsidian.core.vault import read_note
+        mock_api.return_value = {"content": "ok"}
+        read_note("https://localhost:27124", "test-key", "folder/name #?.md")
+        mock_api.assert_called_once_with(
+            "https://localhost:27124", "/vault/folder/name%20%23%3F.md", "test-key"
+        )
+
+    @patch("cli_anything.obsidian.core.vault.api_get")
+    def test_note_path_rejects_parent_traversal(self, mock_api):
+        from cli_anything.obsidian.core.vault import read_note
+        with pytest.raises(ValueError, match="parent traversal"):
+            read_note("https://localhost:27124", "test-key", "folder/../private.md")
+
     @patch("cli_anything.obsidian.core.vault.api_put")
     def test_create_note(self, mock_api):
         from cli_anything.obsidian.core.vault import create_note
@@ -325,6 +356,17 @@ def runner():
 
 
 class TestCLIParsing:
+    def test_repl_reapplies_custom_host_key_and_json_context(self, monkeypatch):
+        import cli_anything.obsidian.obsidian_cli as cli_module
+        monkeypatch.setattr(cli_module, "_host", "https://vault.example:27124")
+        monkeypatch.setattr(cli_module, "_api_key", "fixture-secret")
+        monkeypatch.setattr(cli_module, "_json_output", True)
+
+        assert cli_module._repl_cli_args(["vault", "list"]) == [
+            "--host", "https://vault.example:27124", "--api-key", "fixture-secret",
+            "--json", "vault", "list",
+        ]
+
     def test_help(self, runner):
         result = runner.invoke(cli, ["--help"])
         assert result.exit_code == 0
@@ -469,6 +511,15 @@ class TestSearchCommands:
 
 
 class TestErrorHandling:
+    @patch("cli_anything.obsidian.core.command.list_commands")
+    def test_command_list_accepts_plugin_list_response(self, mock_list, runner):
+        mock_list.return_value = [{"id": "app:open", "name": "Open view"}]
+        result = runner.invoke(cli, ["--api-key", "k", "command", "list"])
+
+        assert result.exit_code == 0
+        assert "app:open" in result.output
+        assert "Open view" in result.output
+
     @patch("cli_anything.obsidian.core.server.api_get")
     def test_server_status_error(self, mock_api, runner):
         mock_api.side_effect = RuntimeError("Cannot connect to Obsidian")

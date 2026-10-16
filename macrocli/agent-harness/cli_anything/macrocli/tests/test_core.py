@@ -35,7 +35,7 @@ SIMPLE_MACRO_YAML = textwrap.dedent("""\
         backend: native_api
         action: run_command
         params:
-          command: [echo, hello]
+          command: [python, "-c", "import sys; print(sys.argv[1])", hello]
     postconditions: []
 """)
 
@@ -139,8 +139,8 @@ class TestSubstitute:
 
     def test_nested_list(self):
         from cli_anything.macrocli.core.macro_model import substitute
-        result = substitute(["echo", "${output}"], {"output": "/tmp/x"})
-        assert result == ["echo", "/tmp/x"]
+        result = substitute([sys.executable, "-c", "import sys; print(sys.argv[1])", "${output}"], {"output": "/tmp/x"})
+        assert result == [sys.executable, "-c", "import sys; print(sys.argv[1])", "/tmp/x"]
 
     def test_nested_dict(self):
         from cli_anything.macrocli.core.macro_model import substitute
@@ -224,14 +224,14 @@ class TestNativeAPIBackend:
     def test_run_command_success(self):
         from cli_anything.macrocli.backends.native_api import NativeAPIBackend
         b = NativeAPIBackend()
-        step = self._make_step("run_command", {"command": ["echo", "hello"]})
+        step = self._make_step("run_command", {"command": [sys.executable, "-c", "import sys; print(sys.argv[1])", "hello"]})
         result = b.execute(step, {}, self._make_context())
         assert result.success
 
     def test_run_command_fails_bad_exit(self):
         from cli_anything.macrocli.backends.native_api import NativeAPIBackend
         b = NativeAPIBackend()
-        step = self._make_step("run_command", {"command": ["false"]})
+        step = self._make_step("run_command", {"command": [sys.executable, "-c", "raise SystemExit(1)"]})
         result = b.execute(step, {}, self._make_context())
         assert not result.success
         assert "exit" in result.error.lower() or "failed" in result.error.lower()
@@ -246,7 +246,7 @@ class TestNativeAPIBackend:
     def test_find_executable_found(self):
         from cli_anything.macrocli.backends.native_api import NativeAPIBackend
         b = NativeAPIBackend()
-        step = self._make_step("find_executable", {"name": "echo"})
+        step = self._make_step("find_executable", {"name": sys.executable})
         result = b.execute(step, {}, self._make_context())
         assert result.success
         assert "executable" in result.output
@@ -266,7 +266,7 @@ class TestNativeAPIBackend:
         from cli_anything.macrocli.backends.native_api import NativeAPIBackend
         from cli_anything.macrocli.backends.base import BackendContext
         b = NativeAPIBackend()
-        step = self._make_step("run_command", {"command": ["false"]})
+        step = self._make_step("run_command", {"command": [sys.executable, "-c", "raise SystemExit(1)"]})
         ctx = BackendContext(params={}, dry_run=True)
         result = b.execute(step, {}, ctx)
         assert result.success
@@ -275,7 +275,7 @@ class TestNativeAPIBackend:
     def test_param_substitution_in_command(self):
         from cli_anything.macrocli.backends.native_api import NativeAPIBackend
         b = NativeAPIBackend()
-        step = self._make_step("run_command", {"command": ["echo", "${msg}"]})
+        step = self._make_step("run_command", {"command": [sys.executable, "-c", "import sys; print(sys.argv[1])", "${msg}"]})
         result = b.execute(step, {"msg": "substituted"}, self._make_context({"msg": "substituted"}))
         assert result.success
 
@@ -405,7 +405,7 @@ class TestRoutingEngine:
         from cli_anything.macrocli.backends.base import BackendContext
         engine = RoutingEngine()
         step = MacroStep(id="x", backend="native_api", action="run_command",
-                         params={"command": ["echo", "hello"]})
+                         params={"command": [sys.executable, "-c", "import sys; print(sys.argv[1])", "hello"]})
         ctx = BackendContext(params={})
         result = engine.execute_step(step, {}, ctx)
         assert result.success
@@ -430,7 +430,7 @@ class TestMacroRuntime:
                 backend: native_api
                 action: run_command
                 params:
-                  command: [echo, "${msg}"]
+                  command: [python, "-c", "import sys; print(sys.argv[1])", "${msg}"]
         """)
         write_macro(tmp_path, "echo_macro", yaml_content)
         reg = MacroRegistry(str(tmp_path))
@@ -462,7 +462,7 @@ class TestMacroRuntime:
                 backend: native_api
                 action: run_command
                 params:
-                  command: [echo, "${output}"]
+                  command: [python, "-c", "import sys; print(sys.argv[1])", "${output}"]
         """)
         write_macro(tmp_path, "required_param_macro", yaml_content)
         reg = MacroRegistry(str(tmp_path))
@@ -483,7 +483,7 @@ class TestMacroRuntime:
                 backend: native_api
                 action: run_command
                 params:
-                  command: [echo, ok]
+                  command: [python, "-c", "import sys; print(sys.argv[1])", ok]
         """)
         write_macro(tmp_path, "precond_macro", yaml_content)
         reg = MacroRegistry(str(tmp_path))
@@ -502,7 +502,7 @@ class TestMacroRuntime:
                 backend: native_api
                 action: run_command
                 params:
-                  command: [echo, ok]
+                  command: [python, "-c", "import sys; print(sys.argv[1])", ok]
             postconditions:
               - file_exists: /nonexistent_output_xyz
         """)
@@ -547,7 +547,7 @@ class TestMacroRuntime:
                 backend: native_api
                 action: run_command
                 params:
-                  command: [echo, reached]
+                  command: [python, "-c", "import sys; print(sys.argv[1])", reached]
         """)
         write_macro(tmp_path, "skip_macro", yaml_content)
         reg = MacroRegistry(str(tmp_path))

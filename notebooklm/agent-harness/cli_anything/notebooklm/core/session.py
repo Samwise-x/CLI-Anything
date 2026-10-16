@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from pathlib import Path
 
 
@@ -20,15 +22,26 @@ class Session:
         if not self.session_file.exists():
             return {"active_notebook": None}
         try:
-            return json.loads(self.session_file.read_text(encoding="utf-8"))
+            data = json.loads(self.session_file.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             return {"active_notebook": None}
+        return data if isinstance(data, dict) else {"active_notebook": None}
 
     def _save(self):
-        self.session_file.write_text(
-            json.dumps(self._data, indent=2, ensure_ascii=True),
-            encoding="utf-8",
-        )
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=self.session_file.parent,
+                prefix=f".{self.session_file.name}.", suffix=".tmp", delete=False,
+            ) as stream:
+                temporary = Path(stream.name)
+                json.dump(self._data, stream, indent=2, ensure_ascii=True)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, self.session_file)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
 
     def get_active_notebook(self) -> str | None:
         return self._data.get("active_notebook")

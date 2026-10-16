@@ -22,7 +22,7 @@ def mock_project_dir(tmp_path):
     project_dir.mkdir()
 
     # Create models directory with multiple runs
-    models_dir = project_dir / "models"
+    models_dir = project_dir / "experiments"
     models_dir.mkdir()
 
     # Run 1: ~100MB
@@ -56,19 +56,19 @@ def mock_project(mock_project_dir):
     """Create a mock project dictionary"""
     return {
         "project_name": "test_project",
-        "project_root": str(mock_project_dir),
+        "_project_dir": str(mock_project_dir),
         "runs": [
             {
                 "run_id": "run_001",
                 "timestamp": "2024-01-15T10:00:00",
                 "metrics": {"auc": 0.85},
-                "save_path": str(mock_project_dir / "models" / "run_001")
+                "save_path": str(mock_project_dir / "experiments" / "run_001")
             },
             {
                 "run_id": "run_002",
                 "timestamp": "2024-01-14T10:00:00",
                 "metrics": {"auc": 0.80},
-                "save_path": str(mock_project_dir / "models" / "run_002")
+                "save_path": str(mock_project_dir / "experiments" / "run_002")
             }
         ]
     }
@@ -150,7 +150,7 @@ class TestAnalyzeProjectStorage:
         """Test analysis of empty project"""
         empty_project = {
             "project_name": "empty",
-            "project_root": str(tmp_path),
+            "_project_dir": str(tmp_path),
             "runs": []
         }
 

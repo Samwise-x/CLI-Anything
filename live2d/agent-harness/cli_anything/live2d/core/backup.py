@@ -11,7 +11,11 @@ BACKUP_DIR = ".live2d-backups"
 
 
 def _backup_dir_for(model_path: Path) -> Path:
-    return model_path.parent / BACKUP_DIR / model_path.stem
+    backup_root = model_path.parent / BACKUP_DIR
+    bdir = backup_root / model_path.stem
+    if backup_root.is_symlink() or bdir.is_symlink():
+        raise ValueError("backup directory must not be a symlink")
+    return bdir
 
 
 def snapshot(model_path: Path) -> Path:
@@ -54,6 +58,8 @@ def restore(model_path: Path, backup_name: str | None = None) -> Path:
         raise FileNotFoundError(f"No backups found for {model_path.name}")
 
     if backup_name:
+        if Path(backup_name).name != backup_name or "/" in backup_name or "\\" in backup_name:
+            raise ValueError("backup name must be a filename")
         src = bdir / backup_name
     else:
         backups = sorted(bdir.glob("*.model3.json"), reverse=True)

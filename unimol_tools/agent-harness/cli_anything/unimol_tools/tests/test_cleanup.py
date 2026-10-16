@@ -169,3 +169,74 @@ class TestListArchives:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_restore_rejects_archive_member_outside_experiments(tmp_path):
+    import io
+    import tarfile
+    from cli_anything.unimol_tools.core.cleanup import restore_model
+
+    project_dir = tmp_path / "project"
+    experiments_dir = project_dir / "experiments"
+    experiments_dir.mkdir(parents=True)
+    archive_path = tmp_path / "malicious.tar.gz"
+    with tarfile.open(archive_path, "w:gz") as archive:
+        safe_member = tarfile.TarInfo("run-1/partial.txt")
+        safe_payload = b"partial"
+        safe_member.size = len(safe_payload)
+        archive.addfile(safe_member, io.BytesIO(safe_payload))
+
+        member = tarfile.TarInfo("../escaped.txt")
+        payload = b"outside"
+        member.size = len(payload)
+        archive.addfile(member, io.BytesIO(payload))
+
+    run = {"run_id": "run-1", "archived": True, "archive_path": str(archive_path)}
+    project = {"_project_dir": str(project_dir), "runs": [run]}
+
+    result = restore_model(project, "run-1")
+
+    assert result["status"] == "error"
+    assert not (project_dir / "escaped.txt").exists()
+    assert not (experiments_dir / "run-1").exists()
+    assert run["archived"] is True
+
+
+def test_delete_model_refuses_directory_outside_project(tmp_path):
+    from cli_anything.unimol_tools.core.cleanup import delete_model
+
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    outside_dir = tmp_path / "valued-data"
+    outside_dir.mkdir()
+    (outside_dir / "keep.txt").write_text("keep", encoding="utf-8")
+    project = {
+        "_project_dir": str(project_dir),
+        "runs": [{"run_id": "run-1", "model_dir": str(outside_dir)}],
+    }
+
+    result = delete_model(project, "run-1", confirm=False)
+
+    assert result is False
+    assert (outside_dir / "keep.txt").read_text(encoding="utf-8") == "keep"
+    assert project["runs"][0]["run_id"] == "run-1"
+
+
+def test_archive_model_refuses_directory_outside_project(tmp_path):
+    from cli_anything.unimol_tools.core.cleanup import archive_model
+
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    outside_dir = tmp_path / "valued-model"
+    outside_dir.mkdir()
+    (outside_dir / "keep.txt").write_text("keep", encoding="utf-8")
+    project = {
+        "_project_dir": str(project_dir),
+        "runs": [{"run_id": "run-1", "model_dir": str(outside_dir)}],
+    }
+
+    result = archive_model(project, "run-1", archive_dir=str(tmp_path / "archives"))
+
+    assert result["status"] == "error"
+    assert (outside_dir / "keep.txt").read_text(encoding="utf-8") == "keep"
+    assert project["runs"][0].get("archived") is None

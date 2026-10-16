@@ -172,6 +172,11 @@ def render(session: Session, output_path: str,
         available = ", ".join(sorted(EXPORT_PRESETS.keys()))
         raise ValueError(f"Unknown preset: {preset!r}. Available: {available}")
 
+    # Keep project duration metadata synchronized even when the render backend
+    # is unavailable; callers can still inspect or save the prepared timeline.
+    from .timeline import _update_tractor_out
+    _update_tractor_out(session)
+
     melt = shutil.which("melt")
     if not melt:
         raise RuntimeError(

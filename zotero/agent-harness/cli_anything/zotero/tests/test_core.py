@@ -255,6 +255,12 @@ class ImportCoreTests(unittest.TestCase):
             profile_dir=str(self.env["profile_dir"]),
             executable=str(self.env["executable"]),
         )
+        selected_collection = mock.patch(
+            "cli_anything.zotero.utils.zotero_http.get_selected_collection",
+            return_value={"id": 1, "name": "Sample Collection", "libraryID": 0},
+        )
+        selected_collection.start()
+        self.addCleanup(selected_collection.stop)
 
     def test_enable_local_api_reports_idempotent_state(self):
         payload = imports_mod.enable_local_api(self.runtime)

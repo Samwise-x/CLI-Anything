@@ -827,7 +827,7 @@ def test_providers_set_current_codex_writes_live_config(runner, tmp_path, monkey
     conn.close()
 
     result = runner.invoke(cli, [
-        "--db", str(db_path), "providers", "set-current", "deepseek", "--app", "codex",
+        "--db", str(db_path), "--live-home", str(tmp_path), "providers", "set-current", "deepseek", "--app", "codex",
     ])
 
     assert result.exit_code == 0

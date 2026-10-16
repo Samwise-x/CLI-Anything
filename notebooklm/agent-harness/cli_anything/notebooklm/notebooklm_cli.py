@@ -95,10 +95,17 @@ def auth_login():
 
 
 @auth.command("check")
+@click.option("--test", "network_test", is_flag=True, help="Verify tokens against NotebookLM over the network")
+@click.option("--passive", is_flag=True, help="With --test, prevent auth refresh or storage writes")
 @handle_error
-def auth_check():
+def auth_check(network_test, passive):
     """Run a lightweight authentication check."""
-    emit(run_notebooklm(["auth", "check"], json_output=_json_output))
+    args = ["auth", "check"]
+    if network_test:
+        args.append("--test")
+    if passive:
+        args.append("--passive")
+    emit(run_notebooklm(args, json_output=_json_output))
 
 
 @cli.group()

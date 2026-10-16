@@ -349,3 +349,64 @@ class TestExportVerify:
         f.write_bytes(b"PK\x03\x04" + b"\x00" * 50)
         r = verify_file(str(f))
         assert not r["valid"]
+
+
+@patch("cli_anything.anygen.utils.anygen_backend.requests.post")
+def test_create_http_error_redacts_reflected_auth_token(mock_post):
+    secret = "sk-secret-reflected"
+    resp = MagicMock()
+    resp.status_code = 500
+    resp.text = "request rejected: Bearer " + secret
+    mock_post.return_value = resp
+
+    from cli_anything.anygen.utils.anygen_backend import create_task
+    with pytest.raises(RuntimeError) as exc_info:
+        create_task(secret, "slide", "test")
+
+    assert secret not in str(exc_info.value)
+    assert "[REDACTED]" in str(exc_info.value)
+
+
+@patch("cli_anything.anygen.utils.anygen_backend.requests.get")
+@patch("cli_anything.anygen.utils.anygen_backend.query_task")
+def test_download_file_keeps_server_filename_inside_output_dir(mock_query, mock_get, tmp_path):
+    output_dir = tmp_path / "downloads"
+    mock_query.return_value = {
+        "status": "completed",
+        "output": {"file_url": "https://files.example/f", "file_name": "../escaped.txt"},
+    }
+    response = MagicMock()
+    response.content = b"generated"
+    response.raise_for_status.return_value = None
+    mock_get.return_value = response
+
+    from cli_anything.anygen.utils.anygen_backend import download_file
+    result = download_file("sk-test", "task_1", str(output_dir))
+
+    assert Path(result["local_path"]).parent == output_dir
+    assert (output_dir / "escaped.txt").read_bytes() == b"generated"
+    assert not (tmp_path / "escaped.txt").exists()
+
+
+@patch("cli_anything.anygen.utils.anygen_backend.requests.get")
+@patch("cli_anything.anygen.utils.anygen_backend.query_task")
+def test_download_file_does_not_follow_dangling_output_symlink(mock_query, mock_get, tmp_path):
+    output_dir = tmp_path / "downloads"
+    output_dir.mkdir()
+    escaped = tmp_path / "escaped.txt"
+    (output_dir / "result.txt").symlink_to(escaped)
+    mock_query.return_value = {
+        "status": "completed",
+        "output": {"file_url": "https://files.example/f", "file_name": "result.txt"},
+    }
+    response = MagicMock()
+    response.content = b"generated"
+    response.raise_for_status.return_value = None
+    mock_get.return_value = response
+
+    from cli_anything.anygen.utils.anygen_backend import download_file
+    result = download_file("sk-test", "task_1", str(output_dir))
+
+    assert Path(result["local_path"]).parent == output_dir
+    assert not escaped.exists()
+    assert (output_dir / "result_1.txt").read_bytes() == b"generated"

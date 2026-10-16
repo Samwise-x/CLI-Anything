@@ -152,6 +152,16 @@ class ReplSkin:
             return text
         return f"{code}{text}{_RESET}"
 
+    @staticmethod
+    def _terminal_icon(stream, icon: str, fallback: str) -> str:
+        encoding = getattr(stream, "encoding", None)
+        if encoding:
+            try:
+                icon.encode(encoding)
+            except (LookupError, UnicodeEncodeError):
+                return fallback
+        return icon
+
     # ── Banner ────────────────────────────────────────────────────────
 
     def print_banner(self):
@@ -294,12 +304,12 @@ class ReplSkin:
 
     def success(self, message: str):
         """Print a success message with green checkmark."""
-        icon = self._c(_GREEN + _BOLD, "✓")
+        icon = self._c(_GREEN + _BOLD, self._terminal_icon(sys.stdout, "✓", "+"))
         print(f"  {icon} {self._c(_GREEN, message)}")
 
     def error(self, message: str):
         """Print an error message with red cross."""
-        icon = self._c(_RED + _BOLD, "✗")
+        icon = self._c(_RED + _BOLD, self._terminal_icon(sys.stderr, "✗", "!"))
         print(f"  {icon} {self._c(_RED, message)}", file=sys.stderr)
 
     def warning(self, message: str):

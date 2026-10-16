@@ -177,12 +177,15 @@ def _merge_codex_provider_toml(target, provider_config: str) -> None:
 @click.group(invoke_without_command=True)
 @click.option("--json", "json_mode", is_flag=True, help="Output in JSON format")
 @click.option("--db", "db_path", type=click.Path(), help="Override database path")
+@click.option("--live-home", type=click.Path(file_okay=False), default=None,
+              help="Explicit home directory for managed application writes")
 @click.pass_context
-def cli(ctx: click.Context, json_mode: bool, db_path: str | None) -> None:
+def cli(ctx: click.Context, json_mode: bool, db_path: str | None, live_home: str | None) -> None:
     """CC Switch CLI — Manage AI coding tool configurations from the terminal."""
     ctx.ensure_object(dict)
     ctx.obj["json_mode"] = json_mode
     ctx.obj["db_path"] = db_path
+    ctx.obj["live_home"] = live_home
     if ctx.invoked_subcommand is None:
         # Show status overview
         _show_status(ctx)
@@ -324,6 +327,33 @@ def providers_get(ctx: click.Context, provider_id: str, app: str) -> None:
 def providers_set_current(ctx: click.Context, provider_id: str, app: str) -> None:
     """Set the current/active provider for an app."""
     app = _resolve_app(app)
+    if ctx.obj.get("db_path") and not ctx.obj.get("live_home"):
+        raise click.ClickException("Provider switching with --db requires an explicit --live-home destination")
+    from pathlib import Path
+    home = Path(ctx.obj["live_home"]) if ctx.obj.get("live_home") else Path(_os.path.expanduser("~"))
+    managed = {
+        "claude": [home / ".claude/settings.json"],
+        "codex": [home / ".codex/config.toml", home / ".codex/auth.json"],
+        "gemini": [home / ".gemini/.env", home / ".gemini/settings.json"],
+        "opencode": [home / ".config/opencode/opencode.json"],
+        "openclaw": [home / ".openclaw/openclaw.json"],
+        "hermes": [home / ".hermes/config.yaml"],
+    }[app]
+    if ctx.obj.get("live_home"):
+        for path in managed:
+            try:
+                relative_parts = path.relative_to(home).parts
+            except ValueError as error:
+                raise click.ClickException("Managed config path escaped --live-home") from error
+            cursor = home
+            for part in relative_parts:
+                cursor = cursor / part
+                if cursor.is_symlink():
+                    raise click.ClickException(
+                        f"Refusing symlink in managed config path: {cursor}"
+                    )
+    previous = {path: (path.read_bytes(), path.stat().st_mode) if path.is_file() else None
+                for path in managed}
     db = connect_db(ctx.obj.get("db_path"))
     try:
         # Verify provider exists
@@ -340,18 +370,44 @@ def providers_set_current(ctx: click.Context, provider_id: str, app: str) -> Non
             "UPDATE providers SET is_current=1 WHERE id=? AND app_type=?", (provider_id, app)
         )
 
-        _write_live_config(app, db)
+        _write_live_config(app, db, live_home=ctx.obj.get("live_home"))
         db.commit()
-        click.echo(f"Switched {app} to provider: {row['name']}")
+    except BaseException as original_error:
+        db.rollback()
+        restoration_errors = []
+        for path, saved in previous.items():
+            try:
+                if saved is not None:
+                    descriptor, temporary = _tempfile.mkstemp(dir=path.parent, prefix=".rollback-")
+                    try:
+                        with _os.fdopen(descriptor, "wb") as stream:
+                            stream.write(saved[0])
+                        _os.replace(temporary, path)
+                    finally:
+                        if _os.path.exists(temporary):
+                            _os.unlink(temporary)
+                    _os.chmod(path, saved[1])
+                elif path.is_file():
+                    path.unlink()
+            except BaseException as restoration_error:
+                restoration_errors.append(f"{path}: {restoration_error}")
+        if restoration_errors:
+            details = "; ".join(restoration_errors)
+            raise RuntimeError(
+                f"Provider switch failed ({original_error}); filesystem restoration also failed: {details}"
+            ) from original_error
+        raise
     finally:
         db.close()
 
+    click.echo(f"Switched {app} to provider: {row['name']}")
 
-def _write_live_config(app: str, db) -> None:
+
+def _write_live_config(app: str, db, live_home: str | None = None) -> None:
     """Write the current provider config to the live app config file."""
     from pathlib import Path
 
-    home = Path(_os.path.expanduser("~"))
+    home = Path(live_home) if live_home is not None else Path(_os.path.expanduser("~"))
     row = db.execute(
         "SELECT * FROM providers WHERE app_type=? AND is_current=1", (app,)
     ).fetchone()

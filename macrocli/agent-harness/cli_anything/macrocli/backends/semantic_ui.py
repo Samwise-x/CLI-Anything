@@ -224,11 +224,14 @@ def _macos_menu_click(app_name: str, menu_path: list[str]) -> None:
 # ── pywinauto helpers (Windows) ───────────────────────────────────────────────
 
 def _win_find_app(title_fragment: str):
+    import re
+    if not title_fragment.strip():
+        raise RuntimeError("An explicit nonempty target window title is required")
     from pywinauto import Application, findwindows
-    handles = findwindows.find_windows(title_re=f".*{title_fragment}.*")
-    if not handles:
-        raise RuntimeError(f"Window not found: '{title_fragment}'")
-    app = Application().connect(handle=handles[0])
+    handles = findwindows.find_windows(title_re=f".*{re.escape(title_fragment)}.*")
+    if len(handles) != 1:
+        raise RuntimeError(f"Expected one window for '{title_fragment}', found {len(handles)}")
+    app = Application(backend="uia").connect(handle=handles[0])
     return app.window(handle=handles[0])
 
 
@@ -324,8 +327,12 @@ class SemanticUIBackend(Backend):
 
         elif _SYSTEM == "Windows":
             import pywinauto.keyboard as kb
-            # Convert ctrl+s → {VK_CONTROL}s
-            kb.send_keys(keys.replace("+", ""))
+            parts = keys.lower().split("+")
+            modifiers = {"ctrl": "^", "control": "^", "alt": "%", "shift": "+"}
+            prefix = "".join(modifiers[part] for part in parts[:-1])
+            key = parts[-1]
+            encoded = key if len(key) == 1 else "{" + key.upper() + "}"
+            kb.send_keys(prefix + encoded)
             return {"keys": keys, "method": "pywinauto"}
 
         raise NotImplementedError(f"shortcut not implemented for {_SYSTEM}")
@@ -383,11 +390,7 @@ class SemanticUIBackend(Backend):
             if not app_name:
                 raise ValueError("menu_click on Windows requires 'app_name' param.")
             win = _win_find_app(app_name)
-            # pywinauto menu navigation
-            menu = win.menu()
-            for item in menu_path:
-                menu = menu.item_by_path(item)
-            menu.click_input()
+            win.menu_select("->".join(menu_path))
             return {"menu_path": menu_path, "method": "pywinauto"}
 
         raise NotImplementedError(f"menu_click not implemented for {_SYSTEM}")
@@ -440,7 +443,7 @@ class SemanticUIBackend(Backend):
 
     def _wait_for_window(self, p: dict, context: BackendContext) -> dict:
         title: str = p.get("title_contains", "")
-        timeout_ms: int = int(p.get("timeout_ms", 5000))
+        timeout_ms: int = min(int(p.get("timeout_ms", 5000)), context.timeout_ms)
         poll_ms: int = int(p.get("poll_ms", 300))
 
         if not title:
@@ -463,7 +466,7 @@ class SemanticUIBackend(Backend):
                     )
                     if r.returncode == 0 and r.stdout.strip():
                         return {"found": title, "method": "xdotool"}
-                time.sleep(poll_ms / 1000.0)
+                time.sleep(min(poll_ms / 1000.0, max(0, deadline - time.time())))
 
         elif _SYSTEM == "Darwin":
             while time.time() < deadline:
@@ -484,18 +487,19 @@ class SemanticUIBackend(Backend):
                 result = _osascript(script)
                 if result.lower() == "true":
                     return {"found": title, "method": "osascript"}
-                time.sleep(poll_ms / 1000.0)
+                time.sleep(min(poll_ms / 1000.0, max(0, deadline - time.time())))
 
         elif _SYSTEM == "Windows":
             import pywinauto.findwindows as fw
             while time.time() < deadline:
                 try:
-                    handles = fw.find_windows(title_re=f".*{title}.*")
+                    import re
+                    handles = fw.find_windows(title_re=f".*{re.escape(title)}.*")
                     if handles:
                         return {"found": title, "method": "pywinauto"}
                 except Exception:
                     pass
-                time.sleep(poll_ms / 1000.0)
+                time.sleep(min(poll_ms / 1000.0, max(0, deadline - time.time())))
 
         raise TimeoutError(
             f"wait_for_window: window containing '{title}' did not appear "

@@ -200,7 +200,7 @@ class NativeAPIBackend(Backend):
 
         cwd: str = step_params.get("cwd", "")
         extra_env: dict = step_params.get("env", {})
-        log_file: str = step_params.get("log_file", "/dev/null")
+        log_file: str = step_params.get("log_file", os.devnull)
 
         env = os.environ.copy()
         if extra_env:
