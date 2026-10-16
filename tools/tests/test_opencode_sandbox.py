@@ -169,6 +169,8 @@ class SandboxTests(unittest.TestCase):
             base = Path(temp)
             root = base / 'workspace'
             root.mkdir()
+            # GitHub hosted UID differs from the WSL container UID; this is disposable fixture data.
+            root.chmod(0o777)
             (base / 'host-only-marker').write_text('HOST_ONLY_SECRET')
             for name in sandbox.PROTECTED:
                 path = root / name
