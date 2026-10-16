@@ -30,6 +30,8 @@ Use `--resume` with the same goal and run directory to continue an incomplete ru
 
 The supplied configuration sends executor, evaluator, and verification commands through `tools/run_opencode_sandbox.py`. Calling OpenCode directly, including interactive `/goal`, bypasses this OS boundary. Use the driver configuration for protected autonomous execution.
 
+The executor uses an ordered pool of five model IDs from OpenCode's own free catalog. The driver advances only when OpenCode exits unsuccessfully with a structured JSON transient-provider error (408, 429, 500, 502, 503, 504, 529, or recognized socket/network transport failure) and the trace contains no tool event. It does not replay partial turns, tool calls, or ordinary incomplete work. Each model attempt is recorded in the run evidence; the model pool and order are part of the resume configuration hash. Catalog entries and free access can change, so verify them with `opencode models` before a long run.
+
 Run the explicit Docker isolation integration check after building the image:
 
     RUN_SANDBOX_LIVE=1 python3 -m unittest tools.tests.test_opencode_sandbox -v

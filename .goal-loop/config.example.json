@@ -3,6 +3,8 @@
   "executor": [
     "python3",
     "tools/run_opencode_sandbox.py",
+    "--model",
+    "{model}",
     "executor",
     "Implement the bounded goal using AGENTS.md. Goal: {goal} Evidence is read-only at {evidence_path}. Write work details to stdout. Print GOAL_STATUS: complete only when implementation acceptance criteria pass; otherwise GOAL_STATUS: incomplete. Independent evaluation follows in a separate stage."
   ],
@@ -39,5 +41,12 @@
       "python3",
       "tools/check_opencode_config.py"
     ]
+  ],
+  "executor_models": [
+    "opencode/nemotron-3-ultra-free",
+    "opencode/deepseek-v4.1-flash-free",
+    "opencode/mimo-v2.6-flash-free",
+    "opencode/longcat-2.5-preview-free",
+    "opencode/muse-spark-1.3-contributor-free"
   ]
 }

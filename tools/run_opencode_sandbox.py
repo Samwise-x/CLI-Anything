@@ -131,7 +131,7 @@ def source_diff(source, env):
                                                 fromfile='/dev/null', tofile='b/' + str(relative)))
     return ''.join(patches)
 
-def container_command(stage, binary, role, message, command=None):
+def container_command(stage, binary, role, message, command=None, model=None):
     readonly = ',readonly' if role != 'executor' else ''
     result = ['docker', 'run', '--rm', '--init', '--read-only', '--cap-drop=ALL',
               '--security-opt=no-new-privileges', '--pids-limit=256', '--memory=2g',
@@ -152,13 +152,17 @@ def container_command(stage, binary, role, message, command=None):
     if role == 'verify':
         return result + ['--network=none', IMAGE, 'timeout', '-s', 'TERM', '-k', '5s', '780s'] + list(command or [])
     result += ['--mount', f'type=bind,src={binary},dst=/usr/local/bin/opencode,readonly',
-               IMAGE, 'timeout', '-s', 'TERM', '-k', '5s', '780s', 'opencode', 'run', '--standalone', '--format', 'json', '--agent',
+               IMAGE, 'timeout', '-s', 'TERM', '-k', '5s', '780s', 'opencode', 'run', '--standalone']
+    if model:
+        result += ['--model', model]
+    result += ['--format', 'json', '--agent',
                'goal-executor' if role == 'executor' else 'goal-reviewer', message]
     return result
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--model', help='OpenCode provider/model selector')
     parser.add_argument('role', choices=('executor', 'reviewer', 'verify'))
     parser.add_argument('arguments', nargs=argparse.REMAINDER)
     args = parser.parse_args()
@@ -195,7 +199,7 @@ def main():
         baseline = snapshot(stage)
         message = ' '.join(args.arguments).replace(str(source), '/workspace')
         message += '\nOriginal host source diff is available at /workspace/.goal-loop/source-diff.patch.'
-        command = container_command(stage, binary, args.role, message, args.arguments)
+        command = container_command(stage, binary, args.role, message, args.arguments, args.model)
         name = 'goal-' + base.name
         command[2:2] = ['--name=' + name]
         try:
