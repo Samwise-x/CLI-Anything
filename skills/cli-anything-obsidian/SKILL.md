@@ -195,6 +195,10 @@ export OBSIDIAN_API_KEY=YOUR_KEY
 cli-anything-obsidian vault list
 ```
 
+The local default accepts the plugin's self-signed loopback certificate. Remote
+hosts require HTTPS certificate verification; set `OBSIDIAN_CA_BUNDLE` for a
+private CA. Remote HTTP endpoints are rejected before the bearer token is sent.
+
 
 ## State Management
 

@@ -1,0 +1,1 @@
+Review current goal against recorded acceptance criteria and deterministic evidence. Do not edit. Inspect the diff and relevant code. Return severity-ranked findings with file and line references, then exactly one status: REVIEW: pass or REVIEW: revise.
