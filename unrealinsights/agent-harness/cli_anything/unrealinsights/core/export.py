@@ -152,7 +152,7 @@ def _normalize_rsp_line(line: str, insights_version: str | None = None) -> tuple
         return line, None
 
     output_path = match.group("output").strip('"')
-    normalized_output = _filename_arg(output_path, insights_version=insights_version)
+    normalized_output = _rsp_filename_arg(output_path, insights_version=insights_version)
     normalized_line = f"{match.group('indent')}{command} {normalized_output}{match.group('rest')}"
     return normalized_line, str(Path(output_path).expanduser().resolve())
 
@@ -216,9 +216,18 @@ def normalize_response_file_lines(lines: list[str], *, insights_version: str | N
             normalized_lines.append(line)
             continue
         output_path = tokens[1].strip('"')
-        filename_token = _filename_arg(output_path, insights_version=insights_version)
+        filename_token = _rsp_filename_arg(output_path, insights_version=insights_version)
         normalized_lines.append(" ".join([tokens[0], filename_token, *tokens[2:]]))
     return normalized_lines
+
+
+def _rsp_filename_arg(output_path: str, *, insights_version: str | None = None) -> str:
+    """Use response-file quoting only when a path requires it."""
+    path = Path(output_path).expanduser().resolve()
+    token = _filename_arg(str(path), insights_version=insights_version)
+    if token.startswith(chr(34)) and token.endswith(chr(34)) and chr(32) not in path.as_posix():
+        return token[1:-1]
+    return token
 
 
 def normalized_response_file_path(rsp_path: str, *, insights_version: str | None = None) -> str:
