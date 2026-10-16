@@ -39,6 +39,19 @@ class SandboxTests(unittest.TestCase):
             self.assertNotIn('/var/run/docker.sock', ' '.join(command))
             self.assertNotIn('/home/master_j', ' '.join(command))
 
+    def test_container_passes_selected_model_to_opencode(self):
+        sandbox = self.module()
+        with tempfile.TemporaryDirectory() as temp:
+            command = sandbox.container_command(
+                Path(temp), Path("/opt/opencode"), "executor", "do work",
+                model="opencode/model-a",
+            )
+            index = command.index("opencode")
+            self.assertEqual(command[index:index + 4], [
+                "opencode", "run", "--standalone", "--model",
+            ])
+            self.assertIn("opencode/model-a", command)
+
     def test_secret_material_excluded_but_credentials_source_available(self):
         sandbox = self.module()
         with tempfile.TemporaryDirectory() as temp:

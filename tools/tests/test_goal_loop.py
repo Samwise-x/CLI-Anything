@@ -47,6 +47,92 @@ class GoalLoopContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "nonempty"):
             goal_loop.validate_config(config)
 
+    def test_executor_model_pool_requires_distinct_model_ids(self):
+        with tempfile.TemporaryDirectory() as directory:
+            goal, config = self.fixture(Path(directory))
+            config["executor_models"] = ["opencode/a", "opencode/a"]
+            with self.assertRaisesRegex(ValueError, "distinct"):
+                goal_loop.validate_config(config)
+
+    def test_model_failover_requires_explicit_model_placeholder(self):
+        with tempfile.TemporaryDirectory() as directory:
+            goal, config = self.fixture(Path(directory))
+            config["executor_models"] = ["opencode/a", "opencode/b"]
+            with self.assertRaisesRegex(ValueError, "model"):
+                goal_loop.validate_config(config)
+
+    def test_model_pool_recovers_from_observed_socket_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            goal, config = self.fixture(root)
+            attempted = root / "models"
+            executor = root / "executor-model.py"
+            executor.write_text(
+                "import json,pathlib,sys\n"
+                f"p=pathlib.Path({str(attempted)!r})\n"
+                "model=sys.argv[1]\n"
+                "with p.open('a') as out: out.write(model+'\\n')\n"
+                "if model.endswith('/a'):\n"
+                " print(json.dumps({'type':'error','error':{'type':'unknown','message':'Transport: The socket connection was closed unexpectedly.'}}))\n"
+                " raise SystemExit(1)\n"
+                "print('GOAL_STATUS: complete')\n",
+                encoding="utf-8",
+            )
+            config["executor"] = [sys.executable, str(executor), "{model}"]
+            config["executor_models"] = ["opencode/a", "opencode/b"]
+            result = goal_loop.run_goal(goal, root / "run", config, 1, 10)
+            self.assertEqual(result["status"], "complete")
+            self.assertEqual(attempted.read_text().splitlines(), ["opencode/a", "opencode/b"])
+
+    def test_model_pool_stops_after_failure_trace_contains_tool_event(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            goal, config = self.fixture(root)
+            attempted = root / "models"
+            executor = root / "executor-model.py"
+            executor.write_text(
+                "import pathlib,sys\n"
+                f"p=pathlib.Path({str(attempted)!r})\n"
+                "model=sys.argv[1]\n"
+                "with p.open('a') as out: out.write(model+'\\n')\n"
+                "print('{\"type\":\"tool\",\"tool\":\"edit\",\"state\":{\"status\":\"running\"}}')\n"
+                "print('{\"type\":\"error\",\"error\":{\"message\":\"HTTP 503 overloaded\"}}')\n"
+                "raise SystemExit(1)\n",
+                encoding="utf-8",
+            )
+            config["executor"] = [sys.executable, str(executor), "{model}"]
+            config["executor_models"] = ["opencode/a", "opencode/b"]
+            result = goal_loop.run_goal(goal, root / "run", config, 1, 10)
+            self.assertEqual(result["status"], "incomplete")
+            self.assertEqual(attempted.read_text().splitlines(), ["opencode/a"])
+
+    def test_model_pool_advances_only_on_safe_provider_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            goal, config = self.fixture(root)
+            attempted = root / "models"
+            executor = root / "executor-model.py"
+            executor.write_text(
+                "import pathlib,sys\n"
+                f"p=pathlib.Path({str(attempted)!r})\n"
+                "model=sys.argv[1]\n"
+                "with p.open('a') as out: out.write(model+'\\n')\n"
+                "if model.endswith('/a'):\n"
+                " print('{\"type\":\"step_start\"}')\n"
+                " print('{\"type\":\"error\",\"error\":{\"message\":\"HTTP 503 overloaded\"}}')\n"
+                " raise SystemExit(1)\n"
+                "print('GOAL_STATUS: complete')\n",
+                encoding="utf-8",
+            )
+            config["executor"] = [sys.executable, str(executor), "{model}"]
+            config["executor_models"] = ["opencode/a", "opencode/b", "opencode/c"]
+            result = goal_loop.run_goal(goal, root / "run", config, 1, 10)
+            self.assertEqual(result["status"], "complete")
+            self.assertEqual(attempted.read_text().splitlines(), ["opencode/a", "opencode/b"])
+            evidence = (root / "run" / "evidence.md").read_text()
+            self.assertIn("opencode/a", evidence)
+            self.assertIn("opencode/b", evidence)
+
     def test_loop_persists_evidence_and_passes_gate(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

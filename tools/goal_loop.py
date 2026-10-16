@@ -25,6 +25,18 @@ def validate_config(config):
         for cmd in config["verify"]
     ):
         raise ValueError("verify must contain nonempty command argument lists")
+    models = config.get("executor_models")
+    if models is not None:
+        if not isinstance(models, list) or not models or not all(
+            isinstance(model, str) and model.strip() for model in models
+        ):
+            raise ValueError("executor_models must be a nonempty list of model IDs")
+        if len(set(models)) != len(models):
+            raise ValueError("executor_models must contain distinct model IDs")
+        if not any("{model}" in part for part in config["executor"]):
+            raise ValueError("executor command must contain the {model} placeholder")
+    elif any("{model}" in part for part in config["executor"]):
+        raise ValueError("executor command uses {model} but executor_models is not configured")
     return config
 
 
@@ -76,7 +88,32 @@ def _ends_with_marker(output, marker):
     return bool(terminal) and terminal[-1] == marker
 
 
-def _command(command, goal_file, run_dir):
+def _safe_model_failover(output):
+    """Allow a new-model attempt only for a clean JSON transient-provider failure."""
+    lines = [line for line in output.splitlines() if line.strip()]
+    if not lines:
+        return False
+    events = []
+    for line in lines:
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            return False
+        if not isinstance(event, dict) or event.get("type") not in {"step_start", "error"}:
+            return False
+        events.append(event)
+    errors = [event for event in events if event.get("type") == "error"]
+    if len(errors) != 1:
+        return False
+    error_text = json.dumps(errors[0].get("error", {}), sort_keys=True).lower()
+    transient = (
+        r"(?<!\d)(408|429|500|502|503|504|529)(?!\d)|overloaded|rate.?limit|temporarily unavailable|"
+        r"socket connection was closed unexpectedly|connection reset|econnreset|etimedout|request timed out|fetch failed"
+    )
+    return bool(re.search(transient, error_text))
+
+
+def _command(command, goal_file, run_dir, model=None):
     goal_text = goal_file.read_text(encoding="utf-8")
     replacements = {
         "{goal}": goal_text,
@@ -84,6 +121,8 @@ def _command(command, goal_file, run_dir):
         "{run_dir}": str(run_dir),
         "{evidence_path}": str(run_dir / "evidence.md"),
     }
+    if model is not None:
+        replacements["{model}"] = model
     templated = any(token in part for part in command for token in replacements)
     expanded = []
     for part in command:
@@ -158,10 +197,26 @@ def _run_goal_locked(goal_file, run_dir, config, max_iterations=3, timeout=900, 
         for iteration in range(start_iteration, max_iterations + 1):
             state["iteration"] = iteration
             _write_json(state_path, state)
-            result = _run(_command(config["executor"], goal_file, run_dir), cwd, timeout, env)
-            (run_dir / f"executor-{iteration}.log").write_text(result.stdout, encoding="utf-8")
-            with evidence.open("a", encoding="utf-8") as out:
-                out.write(f"\n## Executor iteration {iteration}\n\nExit: {result.returncode}\n\n{result.stdout}\n")
+            models = config.get("executor_models", [None])
+            result = None
+            for attempt, model in enumerate(models, start=1):
+                result = _run(_command(config["executor"], goal_file, run_dir, model), cwd, timeout, env)
+                log_name = f"executor-{iteration}-model-{attempt}.log" if len(models) > 1 else f"executor-{iteration}.log"
+                (run_dir / log_name).write_text(result.stdout, encoding="utf-8")
+                with evidence.open("a", encoding="utf-8") as out:
+                    out.write(
+                        f"\n## Executor iteration {iteration}, model attempt {attempt}\n\n"
+                        f"Model: {model or 'configured default'}\nExit: {result.returncode}\n\n{result.stdout}\n"
+                    )
+                can_failover = (
+                    result.returncode != 0
+                    and attempt < len(models)
+                    and _safe_model_failover(result.stdout)
+                )
+                if not can_failover:
+                    break
+                with evidence.open("a", encoding="utf-8") as out:
+                    out.write(f"\nTransient provider failure; next configured model will be tried.\n")
             if result.returncode != 0 or not _ends_with_marker(result.stdout, "GOAL_STATUS: complete"):
                 continue
             checks = []
