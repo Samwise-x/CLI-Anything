@@ -1,0 +1,25 @@
+name: Bounded autonomous goal
+description: Define a maintainer goal with measurable acceptance criteria.
+title: "[goal] "
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Intended outcome
+      description: Describe the observable behavior to change.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria and verification
+      description: List concrete outcomes and deterministic verification commands.
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Scope and constraints
+      description: Bound files, time, attempts, allowed services and rollback.
+    validations:
+      required: true

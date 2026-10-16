@@ -1,0 +1,19 @@
+repos:
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+      - id: actionlint
+  - repo: local
+    hooks:
+      - id: goal-loop-tests
+        name: Goal loop contract tests
+        entry: python3 -m unittest discover -s tools/tests -v
+        language: system
+        pass_filenames: false
+        files: ^tools/
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.1
+    hooks:
+      - id: ruff-check
+        args: [--select, 'E9,F63,F7,F82']
+        files: ^tools/

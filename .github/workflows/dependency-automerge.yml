@@ -1,0 +1,26 @@
+name: Dependency auto-merge
+on:
+  workflow_run:
+    workflows: [Governance]
+    types: [completed]
+permissions:
+  contents: read
+jobs:
+  request:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            if (run.head_repository?.full_name !== `${context.repo.owner}/${context.repo.repo}`) return;
+            for (const item of run.pull_requests || []) {
+              const {data: pr} = await github.rest.pulls.get({...context.repo, pull_number: item.number});
+              if (pr.user.login !== 'dependabot[bot]' || pr.head.sha !== run.head_sha || pr.base.ref !== 'main' || pr.state !== 'open') continue;
+              await github.graphql(`mutation($id: ID!) { enablePullRequestAutoMerge(input: {pullRequestId: $id, mergeMethod: SQUASH}) { pullRequest { number } } }`, {id: pr.node_id});
+            }
