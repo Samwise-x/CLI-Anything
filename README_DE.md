@@ -67,7 +67,6 @@ CLI-Anything: Die Brücke zwischen KI-Agenten und der Software der Welt</strong>
 
 - **2026-04-15** 🌐 **CLI-Hub** auf **v0.2.0** aktualisiert — das PyPI-Paket unterstützt jetzt öffentliche CLIs aus mehreren Install-Quellen (`pip`, `npm`, `brew`, gebündelte/Systemtools), gestützt auf eine neue `public_registry.json`. Das Hub-Frontend wurde mit getrennten Decks für **CLI-Anything CLIs** und **Public CLIs** neu gestaltet, und Live-End-to-End-Checks decken jetzt echte Install-, Update- und Uninstall-Flows über pip- und npm-Pakete hinweg ab.
 
-- **2026-04-14** 🧭 **Safari CLI** gemerged (#212) und in die Hub-Registry aufgenommen — Browser-Automation via `safari-mcp`. 🎬 **Kdenlive** hat zudem Kompatibilitäts-Fixes für Gen-5-Project-Output und ungültige Projekt-Generierung bekommen.
 
 - **2026-04-13** 📓 **Obsidian CLI** gemerged (#211) — Knowledge-Management-Harness via Local REST API mit 48 Unit-Tests und 7 E2E-Tests. ⛓️ **Eth2-Quickstart CLI** gemerged (#195) — Ethereum-Staking-Node-Management-Harness. 📚 **Zotero CLI** auf v0.4.1 aktualisiert (#201) — wird jetzt aus seinem Standalone-Repo geliefert, und CLI-Hub unterstützt jetzt remote `skill_md`-URLs.
 
@@ -109,7 +108,6 @@ CLI-Anything: Die Brücke zwischen KI-Agenten und der Software der Welt</strong>
 
 - **2026-03-25** 🎮 **RenderDoc CLI** gemerged für GPU-Frame-Capture-Analyse. FreeCAD für v1.1 aktualisiert. Blender EEVEE-Engine-Name korrigiert. Zoom-Token-Permissions gehärtet.
 
-- **2026-03-24** 🏭 **FreeCAD CLI** ergänzt mit 258 Befehlen über 17 Gruppen. **iTerm2**- und **Teltonika RMS**-Harnesses in die Registry aufgenommen.
 
 - **2026-03-23** 🤖 **CLI-Hub Meta-Skill** gelauncht — Agenten können CLIs jetzt autonom entdecken und installieren. **Krita CLI**-Harness gemerged für Digital Painting.
 

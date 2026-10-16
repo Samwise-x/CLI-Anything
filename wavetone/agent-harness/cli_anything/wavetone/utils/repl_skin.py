@@ -128,8 +128,7 @@ class ReplSkin:
         display_overrides = {"wavetone": "WaveTone"}
         self.display_name = display_overrides.get(self.software, software.replace("_", " ").title())
         self.version = version
-        software_aliases = {"iterm2_ctl": "iterm2"}
-        self.skill_slug = software_aliases.get(self.software, self.software).replace("_", "-")
+        self.skill_slug = self.software.replace("_", "-")
         self.skill_id = f"cli-anything-{self.skill_slug}"
         self.skill_install_cmd = (
             f"npx skills add {_SKILL_SOURCE_REPO} --skill {self.skill_id} -g -y"

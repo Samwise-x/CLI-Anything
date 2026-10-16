@@ -57,7 +57,6 @@
 !/zotero/
 !/mubu/
 !/obs-studio/
-!/nslogger/
 !/kdenlive/
 !/shotcut/
 !/anygen/
@@ -80,7 +79,6 @@
 !/musescore/
 !/krita/
 !/freecad/
-!/iterm2/
 !/slay_the_spire_ii/
 !/eth2-quickstart/
 !/rms/
@@ -97,7 +95,6 @@
 !/lldb/
 !/macrocli/
 !/sbox/
-!/quietshrink/
 !/mailchimp/
 !/3MF/
 !/calibre/
@@ -124,8 +121,6 @@
 /mubu/.*
 /obs-studio/*
 /obs-studio/.*
-/nslogger/*
-/nslogger/.*
 /kdenlive/*
 /kdenlive/.*
 /shotcut/*
@@ -166,8 +161,6 @@
 /krita/.*
 /freecad/*
 /freecad/.*
-/iterm2/*
-/iterm2/.*
 /slay_the_spire_ii/*
 /slay_the_spire_ii/.*
 /eth2-quickstart/*
@@ -206,8 +199,6 @@
 /macrocli/.*
 /sbox/*
 /sbox/.*
-/quietshrink/*
-/quietshrink/.*
 /mailchimp/*
 /mailchimp/.*
 /calibre/*
@@ -236,7 +227,6 @@
 !/zotero/agent-harness/
 !/mubu/agent-harness/
 !/obs-studio/agent-harness/
-!/nslogger/agent-harness/
 !/kdenlive/agent-harness/
 !/shotcut/agent-harness/
 !/anygen/agent-harness/
@@ -259,7 +249,6 @@
 !/musescore/agent-harness/
 !/krita/agent-harness/
 !/freecad/agent-harness/
-!/iterm2/agent-harness/
 !/slay_the_spire_ii/agent-harness/
 !/slay_the_spire_ii/README.md
 !/eth2-quickstart/agent-harness/
@@ -278,15 +267,12 @@
 !/obsidian/agent-harness/
 !/joplin/agent-harness/
 !/calibre/agent-harness/
-!/safari/
-!/safari/agent-harness/
 !/unrealinsights/agent-harness/
 !/firefly-iii/agent-harness/
 !/nsight-graphics/agent-harness/
 !/lldb/agent-harness/
 !/macrocli/agent-harness/
 !/sbox/agent-harness/
-!/quietshrink/agent-harness/
 !/mailchimp/agent-harness/
 !/live2d/agent-harness/
 !/rekordbox/agent-harness/
